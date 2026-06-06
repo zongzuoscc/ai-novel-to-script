@@ -4,8 +4,14 @@ import type {
   BackendChapterResponse,
   BackendProjectResponse,
   BackendProjectStatus,
+  BackendStoryAnalysisResponse,
+  BackendStoryEntityResponse,
+  BackendStoryEventResponse,
   ChapterViewModel,
-  ProjectViewModel
+  ProjectViewModel,
+  StoryAnalysisViewModel,
+  StoryEntityViewModel,
+  StoryEventViewModel
 } from "./types";
 
 const PHASE_LABELS: Record<BackendProjectStatus, { phase: string; progress: number }> = {
@@ -72,6 +78,41 @@ export function adaptChapter(chapter: BackendChapterResponse): ChapterViewModel 
   };
 }
 
+export function adaptStoryEntity(entity: BackendStoryEntityResponse): StoryEntityViewModel {
+  return {
+    entityId: entity.entityId,
+    entityType: entity.entityType,
+    canonicalName: entity.canonicalName,
+    aliases: entity.aliases ?? [],
+    profile: entity.profile,
+    sourceRefs: entity.sourceRefs ?? []
+  };
+}
+
+export function adaptStoryEvent(event: BackendStoryEventResponse): StoryEventViewModel {
+  return {
+    eventId: event.eventId,
+    chapterId: event.chapterId,
+    eventOrder: event.eventOrder,
+    title: event.title,
+    summary: event.summary,
+    sourceRefs: event.sourceRefs ?? []
+  };
+}
+
+export function adaptStoryAnalysis(
+  result: BackendStoryAnalysisResponse
+): StoryAnalysisViewModel {
+  return {
+    projectId: result.projectId,
+    status: result.status,
+    entityCount: result.entityCount,
+    eventCount: result.eventCount,
+    entities: result.entities.map(adaptStoryEntity),
+    events: result.events.map(adaptStoryEvent)
+  };
+}
+
 export async function getProject(projectId: string) {
   const data = await requestJson<BackendProjectResponse>(`/projects/${projectId}`);
   return adaptProject(data);
@@ -80,4 +121,21 @@ export async function getProject(projectId: string) {
 export async function getProjectChapters(projectId: string) {
   const data = await requestJson<BackendChapterResponse[]>(`/projects/${projectId}/chapters`);
   return data.map(adaptChapter);
+}
+
+export async function analyzeStoryAssets(projectId: string) {
+  const data = await requestJson<BackendStoryAnalysisResponse>(`/projects/${projectId}/analyze`);
+  return adaptStoryAnalysis(data);
+}
+
+export async function getStoryEntities(projectId: string) {
+  const data = await requestJson<BackendStoryEntityResponse[]>(`/projects/${projectId}/entities`);
+  return data.map(adaptStoryEntity);
+}
+
+export async function getStoryEvents(projectId: string) {
+  const data = await requestJson<BackendStoryEventResponse[]>(
+    `/projects/${projectId}/story-events`
+  );
+  return data.map(adaptStoryEvent);
 }
