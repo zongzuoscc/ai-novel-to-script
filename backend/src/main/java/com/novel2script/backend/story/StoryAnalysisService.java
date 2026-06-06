@@ -5,6 +5,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.novel2script.backend.project.ProjectService;
 import com.novel2script.backend.project.ProjectStatus;
+import com.novel2script.backend.scene.OutlineSceneMapper;
+import com.novel2script.backend.scene.SceneScriptMapper;
 import com.novel2script.backend.source.SourceChapter;
 import com.novel2script.backend.source.SourceChapterMapper;
 import com.novel2script.backend.story.dto.StoryAnalysisResponse;
@@ -54,6 +56,12 @@ public class StoryAnalysisService {
 
     private final StoryEventMapper storyEventMapper;
 
+    private final OutlineSceneMapper outlineSceneMapper;
+
+    private final SceneScriptMapper sceneScriptMapper;
+
+    private final AiStoryAssetExtractor aiStoryAssetExtractor;
+
     private final ObjectMapper objectMapper;
 
     public StoryAnalysisService(
@@ -61,12 +69,18 @@ public class StoryAnalysisService {
             SourceChapterMapper sourceChapterMapper,
             StoryEntityMapper storyEntityMapper,
             StoryEventMapper storyEventMapper,
+            OutlineSceneMapper outlineSceneMapper,
+            SceneScriptMapper sceneScriptMapper,
+            AiStoryAssetExtractor aiStoryAssetExtractor,
             ObjectMapper objectMapper
     ) {
         this.projectService = projectService;
         this.sourceChapterMapper = sourceChapterMapper;
         this.storyEntityMapper = storyEntityMapper;
         this.storyEventMapper = storyEventMapper;
+        this.outlineSceneMapper = outlineSceneMapper;
+        this.sceneScriptMapper = sceneScriptMapper;
+        this.aiStoryAssetExtractor = aiStoryAssetExtractor;
         this.objectMapper = objectMapper;
     }
 
@@ -80,9 +94,12 @@ public class StoryAnalysisService {
 
         storyEntityMapper.deleteByProjectId(projectId);
         storyEventMapper.deleteByProjectId(projectId);
+        sceneScriptMapper.deleteByProjectId(projectId);
+        outlineSceneMapper.deleteByProjectId(projectId);
 
-        List<StoryEntity> entities = buildEntities(projectId, chapters);
-        List<StoryEvent> events = buildEvents(projectId, chapters);
+        AiStoryAssetExtractor.Result result = buildStoryAssets(projectId, chapters);
+        List<StoryEntity> entities = result.entities();
+        List<StoryEvent> events = result.events();
 
         if (!entities.isEmpty()) {
             storyEntityMapper.insertBatch(entities);
@@ -93,6 +110,14 @@ public class StoryAnalysisService {
 
         projectService.updateStatus(projectId, ProjectStatus.ENTITY_READY);
         return new StoryAnalysisResponse(projectId, listEntities(projectId), listEvents(projectId));
+    }
+
+    private AiStoryAssetExtractor.Result buildStoryAssets(String projectId, List<SourceChapter> chapters) {
+        try {
+            return aiStoryAssetExtractor.extract(projectId, chapters);
+        } catch (Exception ex) {
+            return new AiStoryAssetExtractor.Result(buildEntities(projectId, chapters), buildEvents(projectId, chapters));
+        }
     }
 
     @Transactional(readOnly = true)

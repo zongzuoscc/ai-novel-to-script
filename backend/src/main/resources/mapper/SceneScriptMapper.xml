@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.novel2script.backend.scene.SceneScriptMapper">
+
+    <resultMap id="SceneScriptResultMap" type="com.novel2script.backend.scene.SceneScript">
+        <id property="id" column="id"/>
+        <result property="projectId" column="project_id"/>
+        <result property="sceneId" column="scene_id"/>
+        <result property="seqNo" column="seq_no"/>
+        <result property="title" column="title"/>
+        <result property="actionJson" column="action_json"/>
+        <result property="dialogueJson" column="dialogue_json"/>
+        <result property="sourceRefsJson" column="source_refs_json"/>
+        <result property="validationStatus" column="validation_status"/>
+        <result property="warningsJson" column="warnings_json"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.novel2script.backend.scene.SceneScript">
+        insert into scene_scripts (
+            project_id, scene_id, seq_no, title, action_json, dialogue_json,
+            source_refs_json, validation_status, warnings_json
+        )
+        values (
+            #{projectId}, #{sceneId}, #{seqNo}, #{title}, #{actionJson}, #{dialogueJson},
+            #{sourceRefsJson}, #{validationStatus}, #{warningsJson}
+        )
+    </insert>
+
+    <select id="findByProjectIdOrderBySeqNoAsc" resultMap="SceneScriptResultMap">
+        select id, project_id, scene_id, seq_no, title, action_json, dialogue_json,
+               source_refs_json, validation_status, warnings_json, created_at, updated_at
+        from scene_scripts
+        where project_id = #{projectId}
+        order by seq_no asc
+    </select>
+
+    <select id="findByProjectIdAndSceneId" resultMap="SceneScriptResultMap">
+        select id, project_id, scene_id, seq_no, title, action_json, dialogue_json,
+               source_refs_json, validation_status, warnings_json, created_at, updated_at
+        from scene_scripts
+        where project_id = #{projectId}
+          and scene_id = #{sceneId}
+    </select>
+
+    <delete id="deleteByProjectIdAndSceneId">
+        delete from scene_scripts
+        where project_id = #{projectId}
+          and scene_id = #{sceneId}
+    </delete>
+
+    <delete id="deleteByProjectId">
+        delete from scene_scripts
+        where project_id = #{projectId}
+    </delete>
+</mapper>

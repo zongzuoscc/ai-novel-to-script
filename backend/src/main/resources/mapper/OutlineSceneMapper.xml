@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.novel2script.backend.scene.OutlineSceneMapper">
+
+    <resultMap id="OutlineSceneResultMap" type="com.novel2script.backend.scene.OutlineScene">
+        <id property="id" column="id"/>
+        <result property="projectId" column="project_id"/>
+        <result property="sceneId" column="scene_id"/>
+        <result property="seqNo" column="seq_no"/>
+        <result property="title" column="title"/>
+        <result property="intExt" column="int_ext"/>
+        <result property="locationId" column="location_id"/>
+        <result property="timeOfDay" column="time_of_day"/>
+        <result property="purposePlot" column="purpose_plot"/>
+        <result property="purposeCharacter" column="purpose_character"/>
+        <result property="charactersJson" column="characters_json"/>
+        <result property="sourceRefsJson" column="source_refs_json"/>
+        <result property="status" column="status"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <insert id="insertBatch">
+        insert into outline_scenes (
+            project_id, scene_id, seq_no, title, int_ext, location_id, time_of_day,
+            purpose_plot, purpose_character, characters_json, source_refs_json, status
+        )
+        values
+        <foreach collection="scenes" item="scene" separator=",">
+            (
+                #{scene.projectId}, #{scene.sceneId}, #{scene.seqNo}, #{scene.title},
+                #{scene.intExt}, #{scene.locationId}, #{scene.timeOfDay},
+                #{scene.purposePlot}, #{scene.purposeCharacter},
+                #{scene.charactersJson}, #{scene.sourceRefsJson}, #{scene.status}
+            )
+        </foreach>
+    </insert>
+
+    <select id="findByProjectIdOrderBySeqNoAsc" resultMap="OutlineSceneResultMap">
+        select id, project_id, scene_id, seq_no, title, int_ext, location_id, time_of_day,
+               purpose_plot, purpose_character, characters_json, source_refs_json, status,
+               created_at, updated_at
+        from outline_scenes
+        where project_id = #{projectId}
+        order by seq_no asc
+    </select>
+
+    <select id="findByProjectIdAndSceneId" resultMap="OutlineSceneResultMap">
+        select id, project_id, scene_id, seq_no, title, int_ext, location_id, time_of_day,
+               purpose_plot, purpose_character, characters_json, source_refs_json, status,
+               created_at, updated_at
+        from outline_scenes
+        where project_id = #{projectId}
+          and scene_id = #{sceneId}
+    </select>
+
+    <delete id="deleteByProjectId">
+        delete from outline_scenes
+        where project_id = #{projectId}
+    </delete>
+</mapper>

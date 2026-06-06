@@ -117,7 +117,7 @@ Rules:
 - `entityId` 角色使用 `C001` 递增格式，地点使用 `L001` 递增格式
 - `entityType` 枚举：`CHARACTER` `LOCATION`
 - `aliases` 和 `sourceRefs` 无内容时返回空数组
-- 当前 A 线首版为规则抽取结果，后续可替换为 LLM 抽取，但接口字段不变
+- 当前 A 线为 AI 优先、规则兜底，接口字段保持不变
 
 ## StoryEvent
 
@@ -203,10 +203,9 @@ Rules:
 ## Current Integration Status
 
 - 已在 `main` 真实接入：`POST /api/projects`、`GET /api/projects`、`GET /api/projects/{projectId}`、`POST /api/projects/{projectId}/source`、`GET /api/projects/{projectId}/chapters`、`POST /api/projects/{projectId}/analyze`、`GET /api/projects/{projectId}/entities`、`GET /api/projects/{projectId}/story-events`
-- 已在 `main` 部分接入：前端已接入项目创建、项目列表、正文提交、章节列表、故事资产分析、角色地点面板、故事事件面板
-- A 线进行中：`POST /api/projects/{projectId}/chapters/summarize`、`GET /api/projects/{projectId}/outline`、`GET /api/projects/{projectId}/scenes`、`GET /api/projects/{projectId}/scenes/{sceneId}`、`POST /api/projects/{projectId}/validate`、`GET /api/projects/{projectId}/export?format=yaml`、`GET /api/projects/{projectId}/events`
-- 当前仍使用 mock 的区域：`outline`、`scene detail`、`validation`、`yaml export preview`、`events`
-- 当前阶段策略：真实接项目管理与故事中间资产，场景与导出继续使用 mock，避免阻塞 A/B 并行开发
+- A 线当前分支真实接入：`POST /api/projects/{projectId}/chapters/summarize`、`GET /api/projects/{projectId}/outline`、`GET /api/projects/{projectId}/scenes`、`GET /api/projects/{projectId}/scenes/{sceneId}`、`POST /api/projects/{projectId}/scenes/{sceneId}/regenerate`
+- 当前仍使用 mock 或待实现的区域：`validation`、`yaml export preview`、`events`
+- 当前阶段策略：真实接项目管理、故事中间资产、场景大纲和 Scene 详情，导出与进度流后续补齐
 
 ## Compatibility Rules
 
