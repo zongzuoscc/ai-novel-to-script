@@ -207,6 +207,44 @@ GET /api/projects/{projectId}/chapters
 }
 ```
 
+## 生成章节摘要
+
+```http
+POST /api/projects/{projectId}/chapters/summarize
+```
+
+路径参数：
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `projectId` | string | 项目 ID，格式 `proj_YYYYMMDD_xxxxxx` |
+
+处理规则：
+
+- 该接口依赖项目已经完成章节切分。
+- 当前默认使用本地规则版摘要生成器；后续接入 AI 后，接口和响应结构保持不变。
+- 摘要会写入 `source_chapters.summary` 字段。
+- 空章节列表会返回业务错误。
+
+成功响应：
+
+```json
+{
+  "success": true,
+  "message": "ok",
+  "data": [
+    {
+      "id": 1,
+      "chapterNo": 1,
+      "title": "第一章 雨夜",
+      "cleanText": "第一章 雨夜\n林舟推门而入。",
+      "summary": "林舟推门而入。",
+      "createdAt": "2026-06-06T00:01:00"
+    }
+  ]
+}
+```
+
 ## 分析故事中间资产
 
 ```http
@@ -348,6 +386,10 @@ curl http://localhost:8080/api/projects/proj_20260606_000001/chapters
 ```
 
 分析故事中间资产：
+
+```bash
+curl -X POST http://localhost:8080/api/projects/proj_20260606_000001/chapters/summarize
+```
 
 ```bash
 curl -X POST http://localhost:8080/api/projects/proj_20260606_000001/analyze

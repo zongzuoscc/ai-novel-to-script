@@ -19,8 +19,11 @@ public class SourceTextController {
 
     private final SourceTextService sourceTextService;
 
-    public SourceTextController(SourceTextService sourceTextService) {
+    private final ChapterSummaryService chapterSummaryService;
+
+    public SourceTextController(SourceTextService sourceTextService, ChapterSummaryService chapterSummaryService) {
         this.sourceTextService = sourceTextService;
+        this.chapterSummaryService = chapterSummaryService;
     }
 
     @PostMapping("/source")
@@ -34,5 +37,10 @@ public class SourceTextController {
     @GetMapping("/chapters")
     public ApiResponse<List<ChapterResponse>> listChapters(@PathVariable String projectId) {
         return ApiResponse.ok(sourceTextService.listChapters(projectId));
+    }
+
+    @PostMapping("/chapters/summarize")
+    public ApiResponse<List<ChapterResponse>> summarizeChapters(@PathVariable String projectId) {
+        return ApiResponse.ok(chapterSummaryService.summarizeChapters(projectId));
     }
 }

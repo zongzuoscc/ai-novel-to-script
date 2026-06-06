@@ -224,6 +224,9 @@ public class StoryAnalysisService {
     }
 
     private String buildEventSummary(SourceChapter chapter) {
+        if (chapter.getSummary() != null && !chapter.getSummary().isBlank()) {
+            return chapter.getSummary();
+        }
         String content = chapter.getCleanText().replace(chapter.getTitle(), "").trim();
         if (content.isBlank()) {
             return chapter.getTitle();
