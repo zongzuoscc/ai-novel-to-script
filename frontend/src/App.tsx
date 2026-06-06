@@ -144,6 +144,7 @@ function App() {
   const [connectionMode, setConnectionMode] = useState<WorkbenchConnectionMode>("mock-only");
   const [errorMessage, setErrorMessage] = useState("");
   const [projectActionMessage, setProjectActionMessage] = useState("");
+  const [sourceSubmitMessage, setSourceSubmitMessage] = useState("");
   const [outlineMessage, setOutlineMessage] = useState("");
   const [outlineSourceMode, setOutlineSourceMode] = useState<"real" | "mock">("mock");
   const [sceneDetailMessage, setSceneDetailMessage] = useState("");
@@ -308,6 +309,7 @@ function App() {
 
     setIsSubmittingSource(true);
     setProjectActionMessage("");
+    setSourceSubmitMessage("");
 
     try {
       // 对齐开发契约：小说正文提交到 POST /api/projects/{projectId}/source。
@@ -334,12 +336,12 @@ function App() {
       setStoryEntities([]);
       setStoryEvents([]);
       setSourceTextInput("");
-      setProjectActionMessage(`小说已提交并切分为 ${nextChapters.length} 个章节。`);
+      setSourceSubmitMessage(`小说已提交到当前项目，并切分为 ${nextChapters.length} 个章节。`);
       await loadProjectDetail(project.projectId);
       await refreshProjectList();
     } catch (error) {
       const message = error instanceof Error ? error.message : "无法提交小说正文";
-      setProjectActionMessage(message);
+      setSourceSubmitMessage(message);
     } finally {
       setIsSubmittingSource(false);
     }
@@ -1039,6 +1041,10 @@ function App() {
             <h2>小说提交</h2>
             <span>{sourceTextInput.trim().length} chars</span>
           </div>
+          {sourceSubmitMessage ? <div className="notice-banner">{sourceSubmitMessage}</div> : null}
+          {connectionMode !== "connected" ? (
+            <div className="notice-banner">请先在项目入口中新建或选择一个真实项目。</div>
+          ) : null}
           <textarea
             className="source-textarea"
             value={sourceTextInput}
@@ -1051,7 +1057,7 @@ function App() {
             disabled={connectionMode !== "connected" || isSubmittingSource || !sourceTextInput.trim()}
             onClick={() => void handleSubmitSourceText()}
           >
-            {isSubmittingSource ? "提交中..." : "提交小说"}
+            {isSubmittingSource ? "提交中..." : "提交到当前项目"}
           </button>
         </section>
 
