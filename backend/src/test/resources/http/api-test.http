@@ -18,6 +18,9 @@ Content-Type: application/json; charset=utf-8
 ### 查询章节
 GET http://localhost:8080/api/projects/proj_20260606_000001/chapters
 
+### 生成章节摘要
+POST http://localhost:8080/api/projects/proj_20260606_000001/chapters/summarize
+
 ### 分析角色、地点、事件
 POST http://localhost:8080/api/projects/proj_20260606_000001/analyze
 

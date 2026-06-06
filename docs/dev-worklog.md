@@ -13,6 +13,7 @@
 
 - 已完成项目创建接口
 - 已完成原文提交和章节切分接口
+- 已完成章节摘要字段与摘要生成接口
 - 已完成基础后端工程骨架
 - 已完成规则版角色/地点/事件中间资产接口
 - 当前真实可用接口：`GET /api/projects/{projectId}`、`GET /api/projects/{projectId}/chapters`
@@ -28,7 +29,8 @@
 
 ## Next A Line Dependencies
 
-- 将规则抽取替换为 LLM 章节摘要、角色归一、地点表抽取
+- 将本地规则版章节摘要替换为 LLM 摘要
+- 将规则抽取替换为 LLM 角色归一、地点表抽取
 - 为 B 线场景大纲生成提供稳定的 `entities` 和 `story-events`
 - `GET /api/projects/{projectId}/events` 保留给 SSE，不用于故事事件列表
 

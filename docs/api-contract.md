@@ -184,9 +184,12 @@ Rules:
 
 ## API Surface
 
+- `POST /api/projects`
+- `GET /api/projects`
 - `POST /api/projects/{projectId}/analyze`
 - `GET /api/projects/{projectId}`
 - `GET /api/projects/{projectId}/chapters`
+- `POST /api/projects/{projectId}/chapters/summarize`
 - `GET /api/projects/{projectId}/entities`
 - `GET /api/projects/{projectId}/story-events`
 - `GET /api/projects/{projectId}/outline`

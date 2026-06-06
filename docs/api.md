@@ -88,6 +88,42 @@ POST /api/projects
 }
 ```
 
+## 查询项目列表
+
+```http
+GET /api/projects?keyword=雨夜
+```
+
+查询参数：
+
+| 参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `keyword` | string | 否 | 按项目标题或 `projectId` 模糊搜索 |
+
+处理规则：
+
+- 不传 `keyword` 时返回全部项目。
+- 当前没有账号系统，默认返回当前数据库中的全部项目。
+- 返回顺序按 `updatedAt`、`createdAt` 倒序，方便前端默认选择最近项目。
+
+成功响应：
+
+```json
+{
+  "success": true,
+  "message": "ok",
+  "data": [
+    {
+      "projectId": "proj_20260606_000001",
+      "title": "雨夜旧书店",
+      "status": "CHAPTERED",
+      "createdAt": "2026-06-06T00:00:00",
+      "updatedAt": "2026-06-06T00:01:00"
+    }
+  ]
+}
+```
+
 ## 查询项目
 
 ```http
@@ -201,6 +237,44 @@ GET /api/projects/{projectId}/chapters
       "title": "第一章 雨夜",
       "cleanText": "第一章 雨夜\n林舟推门而入。",
       "summary": null,
+      "createdAt": "2026-06-06T00:01:00"
+    }
+  ]
+}
+```
+
+## 生成章节摘要
+
+```http
+POST /api/projects/{projectId}/chapters/summarize
+```
+
+路径参数：
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `projectId` | string | 项目 ID，格式 `proj_YYYYMMDD_xxxxxx` |
+
+处理规则：
+
+- 该接口依赖项目已经完成章节切分。
+- 当前默认使用本地规则版摘要生成器；后续接入 AI 后，接口和响应结构保持不变。
+- 摘要会写入 `source_chapters.summary` 字段。
+- 空章节列表会返回业务错误。
+
+成功响应：
+
+```json
+{
+  "success": true,
+  "message": "ok",
+  "data": [
+    {
+      "id": 1,
+      "chapterNo": 1,
+      "title": "第一章 雨夜",
+      "cleanText": "第一章 雨夜\n林舟推门而入。",
+      "summary": "林舟推门而入。",
       "createdAt": "2026-06-06T00:01:00"
     }
   ]
@@ -348,6 +422,10 @@ curl http://localhost:8080/api/projects/proj_20260606_000001/chapters
 ```
 
 分析故事中间资产：
+
+```bash
+curl -X POST http://localhost:8080/api/projects/proj_20260606_000001/chapters/summarize
+```
 
 ```bash
 curl -X POST http://localhost:8080/api/projects/proj_20260606_000001/analyze
