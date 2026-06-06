@@ -23,6 +23,7 @@ import type {
   StoryEntityViewModel,
   StoryEventViewModel,
   ValidationReportViewModel,
+  WrappedProgressStreamEvent,
   WorkbenchConnectionMode
 } from "./api/types";
 import { appConfig } from "./config";
@@ -220,6 +221,32 @@ function App() {
     }
 
     setProgressSourceMode("real");
+  }
+
+  function parseProgressStreamMessage(rawMessage: MessageEvent<string>): ProgressStreamEvent | null {
+    const parsed = JSON.parse(rawMessage.data) as
+      | WrappedProgressStreamEvent
+      | ProgressStreamEvent["data"];
+
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      "event" in parsed &&
+      "data" in parsed &&
+      parsed.data &&
+      typeof parsed.data === "object"
+    ) {
+      return parsed as WrappedProgressStreamEvent;
+    }
+
+    if (parsed && typeof parsed === "object" && rawMessage.type !== "message") {
+      return {
+        event: rawMessage.type as ProgressStreamEvent["event"],
+        data: parsed as ProgressStreamEvent["data"]
+      };
+    }
+
+    return null;
   }
 
   async function loadProjectDetail(nextProjectId: string) {
@@ -636,7 +663,7 @@ function App() {
 
         setOutlineScenes(scenes);
         setOutlineSourceMode("real");
-        setOutlineMessage("已读取真实场景大纲，Scene 详情和 YAML 仍等待 scenes 接口接入。");
+        setOutlineMessage("已读取真实场景大纲。");
       } catch (error) {
         if (cancelled) {
           return;
@@ -763,9 +790,9 @@ function App() {
 
     function handleStreamMessage(rawMessage: MessageEvent<string>) {
       try {
-        const parsed = JSON.parse(rawMessage.data) as ProgressStreamEvent;
+        const parsed = parseProgressStreamMessage(rawMessage);
 
-        if (parsed?.data?.projectId !== project.projectId) {
+        if (!parsed || parsed.data.projectId !== project.projectId) {
           return;
         }
 

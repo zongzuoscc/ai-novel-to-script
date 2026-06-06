@@ -14,26 +14,20 @@
 
 ## Event Payload
 
-所有事件都使用：
+当前 `main` 的 SSE 实现使用“命名事件 + 直接 payload”：
 
-```json
-{
-  "event": "phase.changed",
-  "data": {}
-}
-```
+- 事件名来自 SSE `event:` 字段，例如 `phase.changed`
+- `data:` 中直接放该事件的 JSON payload
+- 前端通过 `addEventListener("<eventName>", ...)` 读取 `MessageEvent.data`
 
 ### `job.started`
 
 ```json
 {
-  "event": "job.started",
-  "data": {
-    "projectId": "proj_20260606_001",
-    "jobType": "full_generation",
-    "progress": 0,
-    "message": "任务已启动"
-  }
+  "projectId": "proj_20260606_001",
+  "jobType": "full_generation",
+  "progress": 0,
+  "message": "任务已启动"
 }
 ```
 
@@ -41,13 +35,10 @@
 
 ```json
 {
-  "event": "phase.changed",
-  "data": {
-    "projectId": "proj_20260606_001",
-    "phase": "scene_generating",
-    "progress": 70,
-    "message": "正在生成第 3/8 个场景"
-  }
+  "projectId": "proj_20260606_001",
+  "phase": "scene_generating",
+  "progress": 70,
+  "message": "正在生成第 3/8 个场景"
 }
 ```
 
@@ -55,12 +46,9 @@
 
 ```json
 {
-  "event": "outline.ready",
-  "data": {
-    "projectId": "proj_20260606_001",
-    "sceneCount": 8,
-    "message": "场景大纲已生成"
-  }
+  "projectId": "proj_20260606_001",
+  "sceneCount": 8,
+  "message": "场景大纲已生成"
 }
 ```
 
@@ -68,14 +56,11 @@
 
 ```json
 {
-  "event": "scene.done",
-  "data": {
-    "projectId": "proj_20260606_001",
-    "sceneId": "S003",
-    "progress": 78,
-    "validationStatus": "PASSED",
-    "message": "场景生成完成"
-  }
+  "projectId": "proj_20260606_001",
+  "sceneId": "S003",
+  "progress": 78,
+  "validationStatus": "PASSED",
+  "message": "场景生成完成"
 }
 ```
 
@@ -83,13 +68,10 @@
 
 ```json
 {
-  "event": "validation.warn",
-  "data": {
-    "projectId": "proj_20260606_001",
-    "sceneId": "S004",
-    "field": "dialogue",
-    "message": "存在未定义角色"
-  }
+  "projectId": "proj_20260606_001",
+  "sceneId": "S004",
+  "field": "dialogue",
+  "message": "存在未定义角色"
 }
 ```
 
@@ -97,13 +79,10 @@
 
 ```json
 {
-  "event": "job.completed",
-  "data": {
-    "projectId": "proj_20260606_001",
-    "progress": 100,
-    "exportReady": true,
-    "message": "任务已完成"
-  }
+  "projectId": "proj_20260606_001",
+  "progress": 100,
+  "exportReady": true,
+  "message": "任务已完成"
 }
 ```
 
@@ -111,12 +90,9 @@
 
 ```json
 {
-  "event": "job.failed",
-  "data": {
-    "projectId": "proj_20260606_001",
-    "phase": "scene_generating",
-    "errorCode": "SCENE_GENERATION_FAILED",
-    "message": "第 5 个场景生成失败"
-  }
+  "projectId": "proj_20260606_001",
+  "phase": "scene_generating",
+  "errorCode": "SCENE_GENERATION_FAILED",
+  "message": "第 5 个场景生成失败"
 }
 ```

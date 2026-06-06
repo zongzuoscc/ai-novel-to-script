@@ -33,21 +33,22 @@
 - 已完成真实故事资产分析触发
 - 已完成真实角色/地点面板接入
 - 已完成真实故事事件面板接入
-- 当前工作台状态：`真实项目管理/正文提交/章节/实体/事件/场景大纲/Scene 详情 + mock 校验/YAML`
+- 已完成真实场景大纲、Scene 详情与 Scene 重新生成接入
+- 已完成真实校验、YAML 导出与 SSE 进度流接入
+- 当前工作台状态：`真实项目管理/正文提交/章节/实体/事件/场景大纲/Scene 详情/校验/导出/进度流 + mock 回退`
 
 ## Next A Line Dependencies
 
-- 完善 `validate`、`export` 和 SSE 进度流接口
 - 根据联调结果细化 AI 提示词和错误处理
+- 继续增强长任务过程中的阶段细分与错误事件
 - `GET /api/projects/{projectId}/events` 保留给 SSE，不用于故事事件列表
 
 ## Next B Line Tasks
 
-- 联调真实 `outline` 和 `scene detail`
-- 用真实 `export` 替换 YAML 预览 mock
-- 用真实 `events` 替换当前阶段进度静态状态
-- 接入真实 `validate` 和导出交互
-- 保持 mock 回退能力，避免 A 线未完成时阻塞演示
+- 联调真实 `validate`、`export` 与 `events`
+- 修正前端对真实 SSE 事件形状的消费逻辑
+- 收口真实状态与 mock 回退之间的消息提示
+- 保持 mock 回退能力，避免接口瞬时失败时阻塞演示
 
 ## Breaking Changes
 
