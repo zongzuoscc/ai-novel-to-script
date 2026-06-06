@@ -4,6 +4,7 @@ import type {
   BackendChapterResponse,
   BackendOutlineSceneResponse,
   BackendProjectResponse,
+  BackendSceneDetailResponse,
   BackendProjectStatus,
   BackendStoryAnalysisResponse,
   BackendStoryEntityResponse,
@@ -11,6 +12,7 @@ import type {
   ChapterViewModel,
   OutlineSceneViewModel,
   ProjectViewModel,
+  SceneDetailViewModel,
   StoryAnalysisViewModel,
   StoryEntityViewModel,
   StoryEventViewModel
@@ -144,6 +146,22 @@ export function adaptOutlineScene(scene: BackendOutlineSceneResponse): OutlineSc
   };
 }
 
+export function adaptSceneDetail(scene: BackendSceneDetailResponse): SceneDetailViewModel {
+  return {
+    sceneId: scene.sceneId,
+    seqNo: scene.seqNo,
+    title: scene.title,
+    action: scene.action ?? [],
+    dialogue: (scene.dialogue ?? []).map((item) => ({
+      characterId: item.characterId,
+      line: item.line
+    })),
+    sourceRefs: scene.sourceRefs ?? [],
+    validationStatus: scene.validationStatus,
+    warnings: scene.warnings ?? []
+  };
+}
+
 export async function getProject(projectId: string) {
   const data = await requestJson<BackendProjectResponse>(`/projects/${projectId}`);
   return adaptProject(data);
@@ -200,4 +218,11 @@ export async function getStoryEvents(projectId: string) {
 export async function getProjectOutline(projectId: string) {
   const data = await requestJson<BackendOutlineSceneResponse[]>(`/projects/${projectId}/outline`);
   return data.map(adaptOutlineScene);
+}
+
+export async function getProjectScene(projectId: string, sceneId: string) {
+  const data = await requestJson<BackendSceneDetailResponse>(
+    `/projects/${projectId}/scenes/${sceneId}`
+  );
+  return adaptSceneDetail(data);
 }
