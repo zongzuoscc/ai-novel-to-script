@@ -64,6 +64,11 @@ button {
   cursor: pointer;
 }
 
+.ghost-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .workspace-grid {
   display: grid;
   grid-template-columns: 320px 1fr 1fr;
@@ -90,6 +95,12 @@ button {
 .panel-header h2 {
   margin: 0;
   font-size: 18px;
+}
+
+.panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .status-pill {
@@ -169,6 +180,12 @@ button {
   background: #fff7ed;
   color: #9a3412;
   font-size: 13px;
+}
+
+.notice-banner-success {
+  border-color: #abefc6;
+  background: #ecfdf3;
+  color: #027a48;
 }
 
 .phase-list {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  analyzeStoryAssets,
   getProject,
   getProjectChapters,
   getStoryEntities,
@@ -88,10 +89,44 @@ function App() {
   const [errorMessage, setErrorMessage] = useState("");
   const [storyAssetsMessage, setStoryAssetsMessage] = useState("");
   const [storyEventsMessage, setStoryEventsMessage] = useState("");
+  const [analysisMessage, setAnalysisMessage] = useState("");
+  const [analysisStatus, setAnalysisStatus] = useState<"success" | "error" | "">("");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const selectedScene = sceneMap[selectedSceneId];
   const selectedWarnings = validationReport.items.filter(
     (item) => item.sceneId === selectedSceneId
   );
+
+  async function handleAnalyzeStoryAssets() {
+    if (connectionMode !== "connected" || isAnalyzing) {
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setAnalysisMessage("");
+    setAnalysisStatus("");
+
+    try {
+      const result = await analyzeStoryAssets(project.projectId);
+      const [entities, events] = await Promise.all([
+        getStoryEntities(project.projectId),
+        getStoryEvents(project.projectId)
+      ]);
+
+      setStoryEntities(entities);
+      setStoryEvents(events);
+      setStoryAssetsMessage("");
+      setStoryEventsMessage("");
+      setAnalysisStatus("success");
+      setAnalysisMessage(`分析完成，已同步 ${result.entityCount} 个实体和 ${result.eventCount} 个事件。`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "无法执行故事资产分析";
+      setAnalysisStatus("error");
+      setAnalysisMessage(message);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -244,11 +279,34 @@ function App() {
         <section className="panel project-panel">
           <div className="panel-header">
             <h2>项目概览</h2>
-            <span className={connectionMode === "connected" ? "status-pill" : "status-pill status-pill-warn"}>
-              {connectionLabel}
-            </span>
+            <div className="panel-header-actions">
+              <span
+                className={
+                  connectionMode === "connected" ? "status-pill" : "status-pill status-pill-warn"
+                }
+              >
+                {connectionLabel}
+              </span>
+              <button
+                className="ghost-button"
+                type="button"
+                disabled={connectionMode !== "connected" || isAnalyzing}
+                onClick={() => void handleAnalyzeStoryAssets()}
+              >
+                {isAnalyzing ? "分析中..." : "执行分析"}
+              </button>
+            </div>
           </div>
           {errorMessage ? <div className="notice-banner">{errorMessage}</div> : null}
+          {analysisMessage ? (
+            <div
+              className={
+                analysisStatus === "success" ? "notice-banner notice-banner-success" : "notice-banner"
+              }
+            >
+              {analysisMessage}
+            </div>
+          ) : null}
           <div className="project-meta">
             <div>
               <span>项目 ID</span>
