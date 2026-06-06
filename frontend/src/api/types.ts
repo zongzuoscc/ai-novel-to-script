@@ -86,6 +86,22 @@ export type BackendOutlineSceneResponse = {
   status: string;
 };
 
+export type BackendSceneDialogueResponse = {
+  characterId: string;
+  line: string;
+};
+
+export type BackendSceneDetailResponse = {
+  sceneId: string;
+  seqNo: number;
+  title: string;
+  action: string[];
+  dialogue: BackendSceneDialogueResponse[];
+  sourceRefs: string[];
+  validationStatus: string;
+  warnings: string[];
+};
+
 export type WorkbenchConnectionMode = "connected" | "mock-only" | "error";
 
 export type ProjectViewModel = {
@@ -151,4 +167,20 @@ export type OutlineSceneViewModel = {
   characters: string[];
   sourceRefs: string[];
   status: string;
+};
+
+export type SceneDialogueViewModel = {
+  characterId: string;
+  line: string;
+};
+
+export type SceneDetailViewModel = {
+  sceneId: string;
+  seqNo: number;
+  title: string;
+  action: string[];
+  dialogue: SceneDialogueViewModel[];
+  sourceRefs: string[];
+  validationStatus: string;
+  warnings: string[];
 };

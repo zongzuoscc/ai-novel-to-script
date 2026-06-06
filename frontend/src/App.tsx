@@ -5,6 +5,7 @@ import {
   getProject,
   getProjectChapters,
   getProjectOutline,
+  getProjectScene,
   getStoryEntities,
   getStoryEvents,
   listProjects,
@@ -14,6 +15,7 @@ import type {
   ChapterViewModel,
   OutlineSceneViewModel,
   ProjectViewModel,
+  SceneDetailViewModel,
   StoryEntityViewModel,
   StoryEventViewModel,
   WorkbenchConnectionMode
@@ -34,8 +36,9 @@ const phaseLabels = [
   "YAML 导出"
 ];
 
-const sceneMap = Object.fromEntries(scenesData.map((scene) => [scene.sceneId, scene]));
 const mockOutlineScenes = outlineData as OutlineSceneViewModel[];
+const mockSceneDetails = scenesData as SceneDetailViewModel[];
+const mockSceneMap = Object.fromEntries(mockSceneDetails.map((scene) => [scene.sceneId, scene]));
 
 const mockProject = {
   projectId: projectData.projectId,
@@ -56,8 +59,7 @@ function isContractProjectId(value: string) {
   return value.startsWith("proj_");
 }
 
-function buildYamlPreview(sceneId: string, project: ProjectViewModel) {
-  const scene = sceneMap[sceneId];
+function buildYamlPreview(scene: SceneDetailViewModel | null, project: ProjectViewModel) {
 
   if (!scene) {
     return `schema_version: "1.0.0"
@@ -104,6 +106,9 @@ function App() {
   const [project, setProject] = useState<ProjectViewModel>(mockProject);
   const [chapters, setChapters] = useState<ChapterViewModel[]>([]);
   const [outlineScenes, setOutlineScenes] = useState<OutlineSceneViewModel[]>(mockOutlineScenes);
+  const [sceneDetail, setSceneDetail] = useState<SceneDetailViewModel | null>(
+    mockSceneMap[mockOutlineScenes[0]?.sceneId] ?? null
+  );
   const [storyEntities, setStoryEntities] = useState<StoryEntityViewModel[]>([]);
   const [storyEvents, setStoryEvents] = useState<StoryEventViewModel[]>([]);
   const [connectionMode, setConnectionMode] = useState<WorkbenchConnectionMode>("mock-only");
@@ -111,6 +116,10 @@ function App() {
   const [projectActionMessage, setProjectActionMessage] = useState("");
   const [outlineMessage, setOutlineMessage] = useState("");
   const [outlineSourceMode, setOutlineSourceMode] = useState<"real" | "mock">("mock");
+  const [sceneDetailMessage, setSceneDetailMessage] = useState("");
+  const [sceneDetailSourceMode, setSceneDetailSourceMode] = useState<"real" | "mock" | "empty">(
+    "mock"
+  );
   const [storyAssetsMessage, setStoryAssetsMessage] = useState("");
   const [storyEventsMessage, setStoryEventsMessage] = useState("");
   const [analysisMessage, setAnalysisMessage] = useState("");
@@ -118,10 +127,17 @@ function App() {
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [isSubmittingSource, setIsSubmittingSource] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const selectedScene = sceneMap[selectedSceneId];
-  const selectedWarnings = validationReport.items.filter(
+  const mockSelectedWarnings = validationReport.items.filter(
     (item) => item.sceneId === selectedSceneId
   );
+  const selectedWarnings =
+    sceneDetailSourceMode === "real" && sceneDetail
+      ? sceneDetail.warnings.map((message, index) => ({
+          sceneId: sceneDetail.sceneId,
+          field: `warning_${index + 1}`,
+          message
+        }))
+      : mockSelectedWarnings;
 
   function switchProject(nextProjectId: string) {
     setProjectId(nextProjectId);
@@ -196,6 +212,9 @@ function App() {
       setOutlineScenes(mockOutlineScenes);
       setOutlineSourceMode("mock");
       setOutlineMessage("正文已更新，真实场景大纲生成后会自动替换当前 mock 大纲。");
+      setSceneDetail(mockSceneMap[mockOutlineScenes[0]?.sceneId] ?? null);
+      setSceneDetailSourceMode("mock");
+      setSceneDetailMessage("正文已更新，真实 Scene 详情生成后会自动替换当前 mock 内容。");
       setStoryEntities([]);
       setStoryEvents([]);
       setSourceTextInput("");
@@ -442,6 +461,64 @@ function App() {
       setSelectedSceneId(outlineScenes[0].sceneId);
     }
   }, [outlineScenes, selectedSceneId]);
+
+  useEffect(() => {
+    const mockScene = mockSceneMap[selectedSceneId] ?? null;
+
+    if (!selectedSceneId) {
+      setSceneDetail(null);
+      setSceneDetailSourceMode("empty");
+      setSceneDetailMessage("");
+      return;
+    }
+
+    if (connectionMode !== "connected") {
+      setSceneDetail(mockScene);
+      setSceneDetailSourceMode(mockScene ? "mock" : "empty");
+      setSceneDetailMessage("");
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadSceneDetail() {
+      try {
+        const detail = await getProjectScene(project.projectId, selectedSceneId);
+
+        if (cancelled) {
+          return;
+        }
+
+        setSceneDetail(detail);
+        setSceneDetailSourceMode("real");
+        setSceneDetailMessage("已读取真实 Scene 详情，YAML 预览已切换到真实场景内容。");
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        const message =
+          error instanceof Error ? error.message : "无法加载真实 Scene 详情，当前继续使用 mock。";
+
+        if (mockScene) {
+          setSceneDetail(mockScene);
+          setSceneDetailSourceMode("mock");
+          setSceneDetailMessage(message);
+          return;
+        }
+
+        setSceneDetail(null);
+        setSceneDetailSourceMode("empty");
+        setSceneDetailMessage("真实 Scene 详情尚未就绪，且当前没有可回退的 mock 场景。");
+      }
+    }
+
+    void loadSceneDetail();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [connectionMode, project.projectId, selectedSceneId]);
 
   const connectionLabel =
     connectionMode === "connected"
@@ -784,14 +861,15 @@ function App() {
         <section className="panel scene-panel">
           <div className="panel-header">
             <h2>Scene 详情</h2>
-            <span>{selectedScene?.validationStatus ?? "未选中"}</span>
+            <span>{sceneDetail?.validationStatus ?? "未选中"}</span>
           </div>
-          {selectedScene ? (
+          {sceneDetailMessage ? <div className="notice-banner">{sceneDetailMessage}</div> : null}
+          {sceneDetail ? (
             <div className="scene-detail">
               <div className="detail-block">
                 <span className="detail-label">动作</span>
                 <ul className="detail-list">
-                  {selectedScene.action.map((line) => (
+                  {sceneDetail.action.map((line) => (
                     <li key={line}>{line}</li>
                   ))}
                 </ul>
@@ -800,7 +878,7 @@ function App() {
               <div className="detail-block">
                 <span className="detail-label">对白</span>
                 <ul className="dialogue-list">
-                  {selectedScene.dialogue.map((item) => (
+                  {sceneDetail.dialogue.map((item) => (
                     <li key={`${item.characterId}-${item.line}`}>
                       <strong>{item.characterId}</strong>
                       <span>{item.line}</span>
@@ -812,7 +890,7 @@ function App() {
               <div className="detail-block">
                 <span className="detail-label">Source Refs</span>
                 <div className="pill-list">
-                  {selectedScene.sourceRefs.map((ref) => (
+                  {sceneDetail.sourceRefs.map((ref) => (
                     <span key={ref} className="inline-pill">
                       {ref}
                     </span>
@@ -822,8 +900,8 @@ function App() {
             </div>
           ) : (
             <div className="empty-state">
-              {outlineSourceMode === "real"
-                ? "真实场景大纲已接入，当前仍等待 scenes 详情接口替换 mock 明细。"
+              {sceneDetailSourceMode === "empty"
+                ? "真实场景大纲已接入，当前仍等待 scenes 详情接口返回该场景内容。"
                 : "未找到当前场景详情。"}
             </div>
           )}
@@ -836,13 +914,13 @@ function App() {
               导出 YAML
             </button>
           </div>
-          <pre className="code-block">{buildYamlPreview(selectedSceneId, project)}</pre>
+          <pre className="code-block">{buildYamlPreview(sceneDetail, project)}</pre>
         </section>
 
         <section className="panel validation-panel">
           <div className="panel-header">
             <h2>校验报告</h2>
-            <span>{validationReport.status}</span>
+            <span>{sceneDetail?.validationStatus ?? validationReport.status}</span>
           </div>
           <div className="validation-list">
             {selectedWarnings.length === 0 ? (
