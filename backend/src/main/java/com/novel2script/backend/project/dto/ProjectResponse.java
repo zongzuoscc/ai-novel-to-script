@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 
 public class ProjectResponse {
 
-    private Long id;
+    private String projectId;
 
     private String title;
 
@@ -17,8 +17,8 @@ public class ProjectResponse {
 
     private LocalDateTime updatedAt;
 
-    public ProjectResponse(Long id, String title, ProjectStatus status, LocalDateTime createdAt, LocalDateTime updatedAt) {
-        this.id = id;
+    public ProjectResponse(String projectId, String title, ProjectStatus status, LocalDateTime createdAt, LocalDateTime updatedAt) {
+        this.projectId = projectId;
         this.title = title;
         this.status = status;
         this.createdAt = createdAt;
@@ -27,7 +27,7 @@ public class ProjectResponse {
 
     public static ProjectResponse from(Project project) {
         return new ProjectResponse(
-                project.getId(),
+                project.getProjectId(),
                 project.getTitle(),
                 project.getStatus(),
                 project.getCreatedAt(),
@@ -35,8 +35,8 @@ public class ProjectResponse {
         );
     }
 
-    public Long getId() {
-        return id;
+    public String getProjectId() {
+        return projectId;
     }
 
     public String getTitle() {

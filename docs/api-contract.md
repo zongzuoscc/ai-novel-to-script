@@ -31,6 +31,7 @@
 Rules:
 
 - `projectId` 使用字符串主键，格式 `proj_YYYYMMDD_xxx`
+- 后端、数据库和前端路由统一只使用字符串 `projectId`
 - `status` 枚举：`CREATED` `SOURCE_SUBMITTED` `CHAPTERED` `ENTITY_READY` `OUTLINED` `SCENE_GENERATING` `COMPLETED` `FAILED`
 - `currentPhase` 给前端显示阶段文案
 - `progress` 固定为 `0-100`
@@ -143,7 +144,7 @@ Rules:
 
 ```json
 {
-  "projectId": 1,
+  "projectId": "proj_20260606_001",
   "status": "ENTITY_READY",
   "entityCount": 2,
   "eventCount": 3,
@@ -206,6 +207,7 @@ Rules:
 ## Compatibility Rules
 
 - 字段统一使用小驼峰：`projectId`、`sceneId`、`sourceRefs`
+- URL 中的 `{projectId}` 只使用字符串项目 ID
 - 时间统一 ISO 8601，时区为 `+08:00`
 - 空列表返回 `[]`，不返回 `null`
 - 契约一旦进入 `main`，改名必须先更新文档和 mock

@@ -13,7 +13,7 @@ public interface ProjectMapper {
 
     int insert(Project project);
 
-    Optional<Project> findById(@Param("id") Long id);
+    Optional<Project> findByProjectId(@Param("projectId") String projectId);
 
-    int updateStatus(@Param("id") Long id, @Param("status") ProjectStatus status);
+    int updateStatus(@Param("projectId") String projectId, @Param("status") ProjectStatus status);
 }
