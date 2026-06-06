@@ -106,8 +106,6 @@ public class SceneGenerationService {
             scenes = buildFallbackOutline(projectId, events);
         }
 
-        outlineSceneMapper.deleteByProjectId(projectId);
-        sceneScriptMapper.deleteByProjectId(projectId);
         outlineSceneMapper.insertBatch(scenes);
         projectService.updateStatus(projectId, ProjectStatus.OUTLINED);
         return outlineSceneMapper.findByProjectIdOrderBySeqNoAsc(projectId);

@@ -36,6 +36,17 @@
                 #{scene.charactersJson}, #{scene.sourceRefsJson}, #{scene.status}
             )
         </foreach>
+        on duplicate key update
+            seq_no = values(seq_no),
+            title = values(title),
+            int_ext = values(int_ext),
+            location_id = values(location_id),
+            time_of_day = values(time_of_day),
+            purpose_plot = values(purpose_plot),
+            purpose_character = values(purpose_character),
+            characters_json = values(characters_json),
+            source_refs_json = values(source_refs_json),
+            status = values(status)
     </insert>
 
     <select id="findByProjectIdOrderBySeqNoAsc" resultMap="OutlineSceneResultMap">

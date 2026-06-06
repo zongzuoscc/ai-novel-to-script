@@ -28,6 +28,14 @@
             #{projectId}, #{sceneId}, #{seqNo}, #{title}, #{actionJson}, #{dialogueJson},
             #{sourceRefsJson}, #{validationStatus}, #{warningsJson}
         )
+        on duplicate key update
+            seq_no = values(seq_no),
+            title = values(title),
+            action_json = values(action_json),
+            dialogue_json = values(dialogue_json),
+            source_refs_json = values(source_refs_json),
+            validation_status = values(validation_status),
+            warnings_json = values(warnings_json)
     </insert>
 
     <select id="findByProjectIdOrderBySeqNoAsc" resultMap="SceneScriptResultMap">
