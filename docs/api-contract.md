@@ -186,6 +186,7 @@ Rules:
 
 - `POST /api/projects`
 - `GET /api/projects`
+- `POST /api/projects/{projectId}/source`
 - `POST /api/projects/{projectId}/analyze`
 - `GET /api/projects/{projectId}`
 - `GET /api/projects/{projectId}/chapters`
@@ -202,10 +203,10 @@ Rules:
 
 ## Current Integration Status
 
-- 已在 `main` 真实接入：`POST /api/projects`、`GET /api/projects`、`GET /api/projects/{projectId}`、`POST /api/projects/{projectId}/source`、`GET /api/projects/{projectId}/chapters`、`POST /api/projects/{projectId}/chapters/summarize`、`POST /api/projects/{projectId}/analyze`、`GET /api/projects/{projectId}/entities`、`GET /api/projects/{projectId}/story-events`、`GET /api/projects/{projectId}/outline`、`GET /api/projects/{projectId}/scenes`、`GET /api/projects/{projectId}/scenes/{sceneId}`、`POST /api/projects/{projectId}/scenes/{sceneId}/regenerate`
-- 已在 `main` 部分接入：前端已接入项目创建、项目列表、正文提交、章节列表、故事资产分析、角色地点面板、故事事件面板、场景大纲骨架、Scene 详情骨架
-- 当前仍使用 mock 或待实现的区域：`validation`、`yaml export preview`、`events`
-- 当前阶段策略：真实接项目管理、故事中间资产、场景大纲和 Scene 详情，校验、导出与进度流后续补齐
+- 已在 `main` 真实接入：`POST /api/projects`、`GET /api/projects`、`GET /api/projects/{projectId}`、`POST /api/projects/{projectId}/source`、`GET /api/projects/{projectId}/chapters`、`POST /api/projects/{projectId}/chapters/summarize`、`POST /api/projects/{projectId}/analyze`、`GET /api/projects/{projectId}/entities`、`GET /api/projects/{projectId}/story-events`、`GET /api/projects/{projectId}/outline`、`GET /api/projects/{projectId}/scenes`、`GET /api/projects/{projectId}/scenes/{sceneId}`、`POST /api/projects/{projectId}/scenes/{sceneId}/regenerate`、`POST /api/projects/{projectId}/validate`、`GET /api/projects/{projectId}/export?format=yaml`、`GET /api/projects/{projectId}/events`
+- 已在 `main` 前端接入：项目创建、项目列表、正文提交、章节列表、故事资产分析、角色地点面板、故事事件面板、场景大纲、Scene 详情、Scene 重新生成、项目校验、YAML 导出、SSE 进度流
+- 当前保留的前端策略：真实接口优先，失败时回退 mock，避免联调期阻塞演示
+- 当前 SSE 实际契约：命名事件 + 直接 payload，详见 `docs/sse-events.md`
 
 ## Compatibility Rules
 
