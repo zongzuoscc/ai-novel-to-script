@@ -240,3 +240,5 @@ export type ProgressStreamEvent = {
   event: ProgressStreamEventName;
   data: ProgressStreamPayload;
 };
+
+export type WrappedProgressStreamEvent = ProgressStreamEvent;
