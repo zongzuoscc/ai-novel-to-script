@@ -31,6 +31,39 @@ export type BackendChapterResponse = {
   createdAt: string;
 };
 
+export type BackendStoryEntityType = "CHARACTER" | "LOCATION";
+
+export type BackendStoryEntityResponse = {
+  entityId: string;
+  entityType: BackendStoryEntityType;
+  canonicalName: string;
+  aliases: string[];
+  profile: string;
+  sourceRefs: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type BackendStoryEventResponse = {
+  eventId: string;
+  chapterId: number;
+  eventOrder: number;
+  title: string;
+  summary: string;
+  sourceRefs: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type BackendStoryAnalysisResponse = {
+  projectId: string;
+  status: string;
+  entityCount: number;
+  eventCount: number;
+  entities: BackendStoryEntityResponse[];
+  events: BackendStoryEventResponse[];
+};
+
 export type WorkbenchConnectionMode = "connected" | "mock-only" | "error";
 
 export type ProjectViewModel = {
@@ -51,4 +84,31 @@ export type ChapterViewModel = {
   summary: string | null;
   previewText: string;
   createdAt: string;
+};
+
+export type StoryEntityViewModel = {
+  entityId: string;
+  entityType: BackendStoryEntityType;
+  canonicalName: string;
+  aliases: string[];
+  profile: string;
+  sourceRefs: string[];
+};
+
+export type StoryEventViewModel = {
+  eventId: string;
+  chapterId: number;
+  eventOrder: number;
+  title: string;
+  summary: string;
+  sourceRefs: string[];
+};
+
+export type StoryAnalysisViewModel = {
+  projectId: string;
+  status: string;
+  entityCount: number;
+  eventCount: number;
+  entities: StoryEntityViewModel[];
+  events: StoryEventViewModel[];
 };
