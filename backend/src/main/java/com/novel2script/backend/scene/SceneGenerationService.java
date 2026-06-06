@@ -284,7 +284,7 @@ public class SceneGenerationService {
                 """.formatted(project.getTitle(), regenerating, toJson(outlineScene), toJson(entities), toJson(events));
     }
 
-    private OutlineSceneResponse toOutlineResponse(OutlineScene scene) {
+    public OutlineSceneResponse toOutlineResponse(OutlineScene scene) {
         return OutlineSceneResponse.from(
                 scene,
                 readStringList(scene.getCharactersJson()),
@@ -292,7 +292,7 @@ public class SceneGenerationService {
         );
     }
 
-    private SceneScriptResponse toSceneScriptResponse(SceneScript sceneScript) {
+    public SceneScriptResponse toSceneScriptResponse(SceneScript sceneScript) {
         return SceneScriptResponse.from(
                 sceneScript,
                 readStringList(sceneScript.getActionJson()),
