@@ -59,3 +59,46 @@ create table if not exists story_events (
     unique key uk_story_events_project_event (project_id, event_id),
     index idx_story_events_project_order (project_id, event_order)
 ) engine=InnoDB default charset=utf8mb4 collate=utf8mb4_unicode_ci;
+
+create table if not exists outline_scenes (
+    id bigint primary key auto_increment,
+    project_id varchar(40) not null,
+    scene_id varchar(40) not null,
+    seq_no int not null,
+    title varchar(200) not null,
+    int_ext varchar(20) not null,
+    location_id varchar(40) not null,
+    time_of_day varchar(40) not null,
+    purpose_plot text not null,
+    purpose_character text not null,
+    characters_json text not null,
+    source_refs_json text not null,
+    status varchar(40) not null,
+    created_at timestamp not null default current_timestamp,
+    updated_at timestamp not null default current_timestamp on update current_timestamp,
+    constraint fk_outline_scenes_project
+        foreign key (project_id) references projects(project_id)
+        on delete cascade,
+    unique key uk_outline_scenes_project_scene (project_id, scene_id),
+    index idx_outline_scenes_project_seq (project_id, seq_no)
+) engine=InnoDB default charset=utf8mb4 collate=utf8mb4_unicode_ci;
+
+create table if not exists scene_scripts (
+    id bigint primary key auto_increment,
+    project_id varchar(40) not null,
+    scene_id varchar(40) not null,
+    seq_no int not null,
+    title varchar(200) not null,
+    action_json text not null,
+    dialogue_json text not null,
+    source_refs_json text not null,
+    validation_status varchar(40) not null,
+    warnings_json text not null,
+    created_at timestamp not null default current_timestamp,
+    updated_at timestamp not null default current_timestamp on update current_timestamp,
+    constraint fk_scene_scripts_project
+        foreign key (project_id) references projects(project_id)
+        on delete cascade,
+    unique key uk_scene_scripts_project_scene (project_id, scene_id),
+    index idx_scene_scripts_project_seq (project_id, seq_no)
+) engine=InnoDB default charset=utf8mb4 collate=utf8mb4_unicode_ci;

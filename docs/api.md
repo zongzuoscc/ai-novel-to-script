@@ -1,6 +1,6 @@
 # 后端接口规范
 
-本文档描述当前后端已经实现的 A 线基础接口，覆盖项目创建、项目查询、小说文本提交和章节查询。
+本文档描述当前后端已经实现的 A 线基础接口，覆盖项目管理、小说文本提交、故事资产分析、场景大纲和 Scene 级剧本查询。
 
 ## 基础信息
 
@@ -8,6 +8,7 @@
 - 数据格式：`application/json`
 - 字符编码：`UTF-8`
 - 当前接口前缀：`/api`
+- AI 配置从本地 `.env` 读取：`AI_API_KEY`、`AI_BASE_URL`、`AI_MODEL_ID`
 
 ## 通用响应结构
 
@@ -299,6 +300,7 @@ POST /api/projects/{projectId}/analyze
 - 首版使用规则抽取角色、地点和章节事件，后续可替换为 LLM 抽取。
 - 执行时会删除该项目旧的实体和事件分析结果，并写入新的结果。
 - 成功后项目状态更新为 `ENTITY_READY`。
+- 当前实现为 AI 优先、规则兜底；AI 不可用时仍返回基础结构，避免联调中断。
 
 成功响应：
 
@@ -317,7 +319,7 @@ POST /api/projects/{projectId}/analyze
         "entityType": "CHARACTER",
         "canonicalName": "林舟",
         "aliases": ["林舟"],
-        "profile": "规则抽取的角色候选，后续可由 AI 补充人物小传、目标和说话风格。",
+        "profile": "青年调查者，因一本失踪手稿进入旧书店。",
         "sourceRefs": ["ch1"],
         "createdAt": "2026-06-06T00:01:00",
         "updatedAt": "2026-06-06T00:01:00"
@@ -357,7 +359,7 @@ GET /api/projects/{projectId}/entities
       "entityType": "CHARACTER",
       "canonicalName": "林舟",
       "aliases": ["林舟"],
-      "profile": "规则抽取的角色候选，后续可由 AI 补充人物小传、目标和说话风格。",
+        "profile": "青年调查者，因一本失踪手稿进入旧书店。",
       "sourceRefs": ["ch1"],
       "createdAt": "2026-06-06T00:01:00",
       "updatedAt": "2026-06-06T00:01:00"
@@ -395,6 +397,98 @@ GET /api/projects/{projectId}/story-events
     }
   ]
 }
+```
+
+## 查询场景大纲
+
+```http
+GET /api/projects/{projectId}/outline
+```
+
+说明：
+
+- 依赖已执行 `POST /api/projects/{projectId}/analyze`。
+- 首次查询时会生成并保存真实场景大纲。
+- 成功后项目状态更新为 `OUTLINED`。
+
+成功响应：
+
+```json
+{
+  "success": true,
+  "message": "ok",
+  "data": [
+    {
+      "sceneId": "S001",
+      "seqNo": 1,
+      "title": "雨夜闯店",
+      "slugline": {
+        "intExt": "INT",
+        "locationId": "L001",
+        "timeOfDay": "NIGHT"
+      },
+      "purpose": {
+        "plot": "建立主角与旧书店的首次连接",
+        "character": "展示林舟的急迫与困境"
+      },
+      "characters": ["C001", "C002"],
+      "sourceRefs": ["ch1"],
+      "status": "READY"
+    }
+  ]
+}
+```
+
+## 查询 Scene 详情
+
+```http
+GET /api/projects/{projectId}/scenes/{sceneId}
+```
+
+说明：
+
+- 依赖已生成场景大纲。
+- 首次查询某个 `sceneId` 时会生成并保存该 Scene 的动作和对白。
+
+成功响应：
+
+```json
+{
+  "success": true,
+  "message": "ok",
+  "data": {
+    "sceneId": "S001",
+    "seqNo": 1,
+    "title": "雨夜闯店",
+    "action": ["林舟推门而入，雨水顺着衣角滴在旧木地板上。"],
+    "dialogue": [
+      {
+        "characterId": "C001",
+        "line": "老板，还营业吗？"
+      }
+    ],
+    "sourceRefs": ["ch1"],
+    "validationStatus": "PASSED",
+    "warnings": []
+  }
+}
+```
+
+## 查询已生成 Scene 列表
+
+```http
+GET /api/projects/{projectId}/scenes
+```
+
+说明：
+
+- 只返回已经生成并保存过的 Scene 详情。
+- 如果尚未打开过具体 Scene，可能返回空数组。
+
+## 重新生成 Scene
+
+```http
+POST /api/projects/{projectId}/scenes/{sceneId}/regenerate
 ```
 
 ## 调试示例
@@ -441,4 +535,16 @@ curl http://localhost:8080/api/projects/proj_20260606_000001/entities
 
 ```bash
 curl http://localhost:8080/api/projects/proj_20260606_000001/story-events
+```
+
+查询场景大纲：
+
+```bash
+curl http://localhost:8080/api/projects/proj_20260606_000001/outline
+```
+
+查询 Scene 详情：
+
+```bash
+curl http://localhost:8080/api/projects/proj_20260606_000001/scenes/S001
 ```
