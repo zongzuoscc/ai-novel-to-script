@@ -89,6 +89,9 @@ public class SceneGenerationService {
         List<OutlineScene> scenes = outlineSceneMapper.findByProjectIdOrderBySeqNoAsc(projectId);
         if (scenes.isEmpty()) {
             scenes = generateOutline(projectId);
+        } else {
+            reconcileOutlineAndSceneScriptOrder(projectId);
+            scenes = outlineSceneMapper.findByProjectIdOrderBySeqNoAsc(projectId);
         }
         return scenes.stream().map(this::toOutlineResponse).toList();
     }
@@ -139,12 +142,14 @@ public class SceneGenerationService {
         }
 
         outlineSceneMapper.insertBatch(newScenes);
+        int reorderedSceneCount = reconcileOutlineAndSceneScriptOrder(projectId);
         projectService.updateStatus(projectId, ProjectStatus.OUTLINED);
         progressEventPublisher.outlineReady(projectId, existingScenes.size() + newScenes.size());
         log.info(
-                "增量场景大纲生成完成: projectId={}, newSceneCount={}, elapsedMs={}",
+                "增量场景大纲生成完成: projectId={}, newSceneCount={}, reorderedSceneCount={}, elapsedMs={}",
                 projectId,
                 newScenes.size(),
+                reorderedSceneCount,
                 System.currentTimeMillis() - startedAt
         );
         return outlineSceneMapper.findByProjectIdOrderBySeqNoAsc(projectId).stream()
@@ -359,6 +364,78 @@ public class SceneGenerationService {
                 .map(sceneId -> parseSequence(sceneId, "S"))
                 .max(Integer::compareTo)
                 .orElse(0) + 1;
+    }
+
+    private int reconcileOutlineAndSceneScriptOrder(String projectId) {
+        List<OutlineScene> scenes = new ArrayList<>(outlineSceneMapper.findByProjectIdOrderBySeqNoAsc(projectId));
+        scenes.sort((first, second) -> {
+            int firstChapterNo = minChapterNoFromSourceRefs(readStringList(first.getSourceRefsJson()));
+            int secondChapterNo = minChapterNoFromSourceRefs(readStringList(second.getSourceRefsJson()));
+            int chapterCompare = Integer.compare(firstChapterNo, secondChapterNo);
+            if (chapterCompare != 0) {
+                return chapterCompare;
+            }
+            int seqCompare = Integer.compare(
+                    first.getSeqNo() == null ? Integer.MAX_VALUE : first.getSeqNo(),
+                    second.getSeqNo() == null ? Integer.MAX_VALUE : second.getSeqNo()
+            );
+            if (seqCompare != 0) {
+                return seqCompare;
+            }
+            return Long.compare(
+                    first.getId() == null ? Long.MAX_VALUE : first.getId(),
+                    second.getId() == null ? Long.MAX_VALUE : second.getId()
+            );
+        });
+
+        int updatedCount = 0;
+        for (int i = 0; i < scenes.size(); i++) {
+            int nextSeqNo = i + 1;
+            OutlineScene scene = scenes.get(i);
+            if (!Integer.valueOf(nextSeqNo).equals(scene.getSeqNo())) {
+                outlineSceneMapper.updateSeqNo(scene.getId(), nextSeqNo);
+                sceneScriptMapper.updateSeqNoByProjectIdAndSceneId(projectId, scene.getSceneId(), nextSeqNo);
+                updatedCount++;
+            }
+        }
+        if (updatedCount > 0) {
+            log.info("场景顺序已按章节重排: projectId={}, updatedCount={}", projectId, updatedCount);
+        }
+        return updatedCount;
+    }
+
+    private int minChapterNoFromSourceRefs(List<String> sourceRefs) {
+        return sourceRefs.stream()
+                .map(this::chapterNoFromSourceRef)
+                .min(Integer::compareTo)
+                .orElse(Integer.MAX_VALUE);
+    }
+
+    private Integer chapterNoFromSourceRef(String sourceRef) {
+        if (sourceRef == null) {
+            return Integer.MAX_VALUE;
+        }
+        String normalized = sourceRef.trim().toLowerCase(Locale.ROOT);
+        if (!normalized.startsWith("ch")) {
+            return Integer.MAX_VALUE;
+        }
+        StringBuilder digits = new StringBuilder();
+        for (int i = 2; i < normalized.length(); i++) {
+            char value = normalized.charAt(i);
+            if (Character.isDigit(value)) {
+                digits.append(value);
+            } else {
+                break;
+            }
+        }
+        if (digits.isEmpty()) {
+            return Integer.MAX_VALUE;
+        }
+        try {
+            return Integer.parseInt(digits.toString());
+        } catch (NumberFormatException ex) {
+            return Integer.MAX_VALUE;
+        }
     }
 
     private int parseSequence(String value, String prefix) {

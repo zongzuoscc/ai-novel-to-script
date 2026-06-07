@@ -226,7 +226,8 @@ public class StoryAnalysisService {
                 buildResult.aiSuccess(),
                 buildResult.fallbackUsed(),
                 buildResult.message() + "；新增章节 " + pendingChapters.size()
-                        + " 章，新增事件 " + mergeResult.insertedEventCount() + " 个"
+                        + " 章，新增事件 " + mergeResult.insertedEventCount()
+                        + " 个，重排事件 " + mergeResult.reorderedEventCount() + " 个"
         );
     }
 
@@ -315,8 +316,9 @@ public class StoryAnalysisService {
         if (!eventsToInsert.isEmpty()) {
             storyEventMapper.insertBatch(eventsToInsert);
         }
+        int reorderedEventCount = reconcileEventOrderByChapter(projectId);
 
-        return new IncrementalMergeResult(entitiesToInsert.size(), entitiesToUpdate.size(), eventsToInsert.size());
+        return new IncrementalMergeResult(entitiesToInsert.size(), entitiesToUpdate.size(), eventsToInsert.size(), reorderedEventCount);
     }
 
     private Map<String, StoryEntity> buildEntityIndex(List<StoryEntity> entities) {
@@ -398,6 +400,34 @@ public class StoryAnalysisService {
             events.add(incoming);
         }
         return events;
+    }
+
+    private int reconcileEventOrderByChapter(String projectId) {
+        List<SourceChapter> chapters = sourceChapterMapper.findByProjectIdOrderByChapterNoAsc(projectId);
+        Map<Long, Integer> chapterOrderById = new LinkedHashMap<>();
+        for (SourceChapter chapter : chapters) {
+            chapterOrderById.put(chapter.getId(), chapter.getChapterNo());
+        }
+
+        List<StoryEvent> events = new ArrayList<>(storyEventMapper.findByProjectIdOrderByEventOrderAsc(projectId));
+        events.sort(Comparator
+                .comparingInt((StoryEvent event) -> chapterOrderById.getOrDefault(event.getChapterId(), Integer.MAX_VALUE))
+                .thenComparing(event -> event.getEventOrder() == null ? Integer.MAX_VALUE : event.getEventOrder())
+                .thenComparing(event -> event.getId() == null ? Long.MAX_VALUE : event.getId()));
+
+        int updatedCount = 0;
+        for (int i = 0; i < events.size(); i++) {
+            int nextOrder = i + 1;
+            StoryEvent event = events.get(i);
+            if (!Integer.valueOf(nextOrder).equals(event.getEventOrder())) {
+                storyEventMapper.updateEventOrder(event.getId(), nextOrder);
+                updatedCount++;
+            }
+        }
+        if (updatedCount > 0) {
+            log.info("故事事件顺序已按章节重排: projectId={}, updatedCount={}", projectId, updatedCount);
+        }
+        return updatedCount;
     }
 
     private String entityMatchKey(StoryEntityType type, String name) {
@@ -658,7 +688,8 @@ public class StoryAnalysisService {
     private record IncrementalMergeResult(
             int insertedEntityCount,
             int updatedEntityCount,
-            int insertedEventCount
+            int insertedEventCount,
+            int reorderedEventCount
     ) {
     }
 }
