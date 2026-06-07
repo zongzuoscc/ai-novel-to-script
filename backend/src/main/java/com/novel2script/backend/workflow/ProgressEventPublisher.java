@@ -24,7 +24,7 @@ public class ProgressEventPublisher {
 
     private final ConcurrentHashMap<String, CopyOnWriteArrayList<SseEmitter>> emitters = new ConcurrentHashMap<>();
 
-    public SseEmitter subscribe(Project project) throws IOException {
+    public SseEmitter subscribe(Project project) {
         String projectId = project.getProjectId();
         SseEmitter emitter = new SseEmitter(TIMEOUT_MS);
         emitters.computeIfAbsent(projectId, ignored -> new CopyOnWriteArrayList<>()).add(emitter);
@@ -32,7 +32,7 @@ public class ProgressEventPublisher {
         emitter.onTimeout(() -> remove(projectId, emitter));
         emitter.onError(ignored -> remove(projectId, emitter));
 
-        sendToEmitter(emitter, "phase.changed", Map.of(
+        safeSend(projectId, emitter, "phase.changed", Map.of(
                 "projectId", projectId,
                 "phase", project.getStatus().name().toLowerCase(),
                 "progress", progressOf(project.getStatus().name()),
@@ -118,17 +118,18 @@ public class ProgressEventPublisher {
             return;
         }
         for (SseEmitter emitter : projectEmitters) {
-            try {
-                sendToEmitter(emitter, eventName, payload);
-            } catch (IOException ex) {
-                remove(projectId, emitter);
-                log.debug("SSE 连接已移除: projectId={}, event={}", projectId, eventName, ex);
-            }
+            safeSend(projectId, emitter, eventName, payload);
         }
     }
 
-    private void sendToEmitter(SseEmitter emitter, String eventName, Map<String, Object> payload) throws IOException {
-        emitter.send(SseEmitter.event().name(eventName).data(payload));
+    private void safeSend(String projectId, SseEmitter emitter, String eventName, Map<String, Object> payload) {
+        try {
+            emitter.send(SseEmitter.event().name(eventName).data(payload));
+        } catch (IOException | IllegalStateException ex) {
+            remove(projectId, emitter);
+            completeQuietly(emitter);
+            log.debug("SSE 连接已移除: projectId={}, event={}", projectId, eventName, ex);
+        }
     }
 
     private void remove(String projectId, SseEmitter emitter) {
@@ -139,6 +140,14 @@ public class ProgressEventPublisher {
         projectEmitters.remove(emitter);
         if (projectEmitters.isEmpty()) {
             emitters.remove(projectId);
+        }
+    }
+
+    private void completeQuietly(SseEmitter emitter) {
+        try {
+            emitter.complete();
+        } catch (IllegalStateException ignored) {
+            // 连接已经关闭时无需继续处理，避免断连异常影响业务接口。
         }
     }
 
