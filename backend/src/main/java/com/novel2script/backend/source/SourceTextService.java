@@ -13,6 +13,7 @@ import com.novel2script.backend.story.StoryEventMapper;
 import com.novel2script.backend.workflow.ProgressEventPublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -36,8 +37,6 @@ public class SourceTextService {
 
     private static final Logger log = LoggerFactory.getLogger(SourceTextService.class);
 
-    private static final long MAX_SOURCE_FILE_SIZE = 2 * 1024 * 1024;
-
     private static final Charset GB18030 = Charset.forName("GB18030");
 
     private final ProjectService projectService;
@@ -58,6 +57,8 @@ public class SourceTextService {
 
     private final ProgressEventPublisher progressEventPublisher;
 
+    private final long maxSourceFileSizeBytes;
+
     public SourceTextService(
             ProjectService projectService,
             SourceChapterMapper sourceChapterMapper,
@@ -67,7 +68,8 @@ public class SourceTextService {
             SceneScriptMapper sceneScriptMapper,
             ChapterSplitter chapterSplitter,
             ProjectOperationLock projectOperationLock,
-            ProgressEventPublisher progressEventPublisher
+            ProgressEventPublisher progressEventPublisher,
+            @Value("${SOURCE_FILE_MAX_MB:20}") int maxSourceFileMb
     ) {
         this.projectService = projectService;
         this.sourceChapterMapper = sourceChapterMapper;
@@ -78,6 +80,7 @@ public class SourceTextService {
         this.chapterSplitter = chapterSplitter;
         this.projectOperationLock = projectOperationLock;
         this.progressEventPublisher = progressEventPublisher;
+        this.maxSourceFileSizeBytes = Math.max(1, maxSourceFileMb) * 1024L * 1024L;
     }
 
     @Transactional
@@ -245,8 +248,8 @@ public class SourceTextService {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("上传的小说文件不能为空");
         }
-        if (file.getSize() > MAX_SOURCE_FILE_SIZE) {
-            throw new IllegalArgumentException("小说文件不能超过 2MB");
+        if (file.getSize() > maxSourceFileSizeBytes) {
+            throw new IllegalArgumentException("小说文件不能超过 " + (maxSourceFileSizeBytes / 1024 / 1024) + "MB");
         }
 
         String filename = file.getOriginalFilename() == null ? "" : file.getOriginalFilename();
