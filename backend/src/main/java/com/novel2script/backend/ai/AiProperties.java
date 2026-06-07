@@ -20,7 +20,7 @@ public class AiProperties {
             @Value("${AI_API_KEY:}") String apiKey,
             @Value("${AI_BASE_URL:https://api.openai.com/v1}") String baseUrl,
             @Value("${AI_MODEL_ID:gpt-4.1-mini}") String modelId,
-            @Value("${AI_TIMEOUT_SECONDS:90}") int timeoutSeconds,
+            @Value("${AI_TIMEOUT_SECONDS:180}") int timeoutSeconds,
             @Value("${AI_MAX_RETRIES:2}") int maxRetries
     ) {
         this.apiKey = apiKey;
