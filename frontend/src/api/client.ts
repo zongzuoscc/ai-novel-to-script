@@ -233,6 +233,14 @@ export async function getProjectChapters(projectId: string) {
   return data.map(adaptChapter);
 }
 
+export async function summarizeProjectChapters(projectId: string) {
+  const data = await requestJson<BackendChapterResponse[]>(
+    `/projects/${projectId}/chapters/summarize`,
+    buildJsonPostOptions()
+  );
+  return data.map(adaptChapter);
+}
+
 export async function submitProjectSource(projectId: string, content: string) {
   const data = await requestJson<BackendChapterResponse[]>(
     `/projects/${projectId}/source`,

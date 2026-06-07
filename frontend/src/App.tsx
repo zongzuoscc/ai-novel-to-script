@@ -11,6 +11,7 @@ import {
   getStoryEvents,
   listProjects,
   regenerateProjectScene,
+  summarizeProjectChapters,
   submitProjectSource,
   validateProjectScenes
 } from "./api/client";
@@ -155,6 +156,7 @@ function App() {
   const [errorMessage, setErrorMessage] = useState("");
   const [projectActionMessage, setProjectActionMessage] = useState("");
   const [sourceSubmitMessage, setSourceSubmitMessage] = useState("");
+  const [chapterSummaryMessage, setChapterSummaryMessage] = useState("");
   const [outlineMessage, setOutlineMessage] = useState("");
   const [outlineSourceMode, setOutlineSourceMode] = useState<"real" | "mock">("mock");
   const [sceneDetailMessage, setSceneDetailMessage] = useState("");
@@ -181,6 +183,7 @@ function App() {
   const [analysisStatus, setAnalysisStatus] = useState<"success" | "warning" | "error" | "">("");
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [isSubmittingSource, setIsSubmittingSource] = useState(false);
+  const [isSummarizingChapters, setIsSummarizingChapters] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isRegeneratingScene, setIsRegeneratingScene] = useState(false);
   const [isValidatingProject, setIsValidatingProject] = useState(false);
@@ -348,6 +351,7 @@ function App() {
       setStoryEntities([]);
       setStoryEvents([]);
       setSourceTextInput("");
+      setChapterSummaryMessage("");
       setSourceSubmitMessage(`小说已提交到当前项目，并切分为 ${nextChapters.length} 个章节。`);
       await loadProjectDetail(project.projectId);
       await refreshProjectList();
@@ -356,6 +360,29 @@ function App() {
       setSourceSubmitMessage(message);
     } finally {
       setIsSubmittingSource(false);
+    }
+  }
+
+  async function handleSummarizeChapters() {
+    if (connectionMode !== "connected" || chapters.length === 0 || isSummarizingChapters) {
+      return;
+    }
+
+    setIsSummarizingChapters(true);
+    setChapterSummaryMessage("");
+
+    try {
+      const summarizedChapters = await summarizeProjectChapters(project.projectId);
+      setChapters(summarizedChapters);
+      const summarizedCount = summarizedChapters.filter((chapter) => chapter.summary?.trim()).length;
+      setChapterSummaryMessage(`章节摘要已生成，已更新 ${summarizedCount} 个章节摘要。`);
+      await loadProjectDetail(project.projectId);
+      await refreshProjectList();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "无法生成章节摘要";
+      setChapterSummaryMessage(message);
+    } finally {
+      setIsSummarizingChapters(false);
     }
   }
 
@@ -1082,8 +1109,19 @@ function App() {
         <section className="panel chapter-panel">
           <div className="panel-header">
             <h2>章节原文</h2>
-            <span>{connectionMode === "connected" ? `${chapters.length} chapters` : "等待真实接口"}</span>
+            <div className="panel-header-actions">
+              <span>{connectionMode === "connected" ? `${chapters.length} chapters` : "等待真实接口"}</span>
+              <button
+                className="ghost-button"
+                type="button"
+                disabled={connectionMode !== "connected" || chapters.length === 0 || isSummarizingChapters}
+                onClick={() => void handleSummarizeChapters()}
+              >
+                {isSummarizingChapters ? "生成中..." : "生成摘要"}
+              </button>
+            </div>
           </div>
+          {chapterSummaryMessage ? <div className="notice-banner">{chapterSummaryMessage}</div> : null}
           {connectionMode === "connected" ? (
             chapters.length > 0 ? (
               <div className="chapter-list">
@@ -1096,6 +1134,12 @@ function App() {
                       <span>#{chapter.id}</span>
                     </div>
                     <p>{chapter.previewText}</p>
+                    {chapter.summary ? (
+                      <div className="chapter-summary">
+                        <span className="detail-label">章节摘要</span>
+                        <p>{chapter.summary}</p>
+                      </div>
+                    ) : null}
                   </article>
                 ))}
               </div>
