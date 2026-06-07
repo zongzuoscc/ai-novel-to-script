@@ -3,7 +3,6 @@ package com.novel2script.backend.ai;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClient;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -13,6 +12,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -24,16 +24,17 @@ public class AiChatClient {
 
     private final ObjectMapper objectMapper;
 
-    private final RestClient.Builder restClientBuilder;
+    private final HttpClient httpClient;
 
     public AiChatClient(
             AiProperties aiProperties,
-            ObjectMapper objectMapper,
-            RestClient.Builder restClientBuilder
+            ObjectMapper objectMapper
     ) {
         this.aiProperties = aiProperties;
         this.objectMapper = objectMapper;
-        this.restClientBuilder = restClientBuilder;
+        this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(aiProperties.getTimeoutSeconds()))
+                .build();
     }
 
     public String completeJson(String systemPrompt, String userPrompt) {
@@ -51,16 +52,84 @@ public class AiChatClient {
                 )
         );
 
-        String responseBody = restClientBuilder.build()
-                .post()
-                .uri(aiProperties.getBaseUrl() + "/chat/completions")
+        return executeJsonWithRetry(requestBody);
+    }
+
+    private String executeJsonWithRetry(Map<String, Object> requestBody) {
+        int maxAttempts = aiProperties.getMaxRetries() + 1;
+        RuntimeException lastFailure = null;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                HttpResponse<String> response = httpClient.send(
+                        buildJsonRequest(requestBody),
+                        HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8)
+                );
+                if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                    return extractContent(response.body());
+                }
+                RuntimeException failure = buildHttpFailure(response.statusCode(), response.body());
+                if (!isRetryableStatus(response.statusCode())) {
+                    throw new NonRetryableAiException(failure.getMessage(), failure);
+                }
+                if (attempt == maxAttempts) {
+                    throw failure;
+                }
+                lastFailure = failure;
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("AI 请求被中断", ex);
+            } catch (NonRetryableAiException ex) {
+                throw ex;
+            } catch (Exception ex) {
+                RuntimeException failure = ex instanceof RuntimeException runtimeException
+                        ? runtimeException
+                        : new IllegalStateException("AI 请求失败", ex);
+                if (attempt == maxAttempts) {
+                    throw failure;
+                }
+                lastFailure = failure;
+            }
+            sleepBeforeRetry(attempt);
+        }
+        throw lastFailure == null ? new IllegalStateException("AI 请求失败") : lastFailure;
+    }
+
+    private HttpRequest buildJsonRequest(Map<String, Object> requestBody) throws Exception {
+        return HttpRequest.newBuilder()
+                .uri(URI.create(aiProperties.getBaseUrl() + "/chat/completions"))
+                .timeout(Duration.ofSeconds(aiProperties.getTimeoutSeconds()))
                 .header("Authorization", "Bearer " + aiProperties.getApiKey())
                 .header("Content-Type", "application/json")
-                .body(requestBody)
-                .retrieve()
-                .body(String.class);
+                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(requestBody), StandardCharsets.UTF_8))
+                .build();
+    }
 
-        return extractContent(responseBody);
+    private RuntimeException buildHttpFailure(int statusCode, String responseBody) {
+        String boundedBody = responseBody == null ? "" : responseBody;
+        if (boundedBody.length() > 500) {
+            boundedBody = boundedBody.substring(0, 500);
+        }
+        return new IllegalStateException("AI 响应失败: HTTP " + statusCode + " " + boundedBody);
+    }
+
+    private boolean isRetryableStatus(int statusCode) {
+        return statusCode == 429 || statusCode >= 500;
+    }
+
+    private void sleepBeforeRetry(int attempt) {
+        try {
+            Thread.sleep(Math.min(1000L * attempt, 3000L));
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("AI 重试等待被中断", ex);
+        }
+    }
+
+    private static final class NonRetryableAiException extends RuntimeException {
+
+        private NonRetryableAiException(String message, Throwable cause) {
+            super(message, cause);
+        }
     }
 
     public void streamText(String systemPrompt, String userPrompt, Consumer<String> chunkConsumer) {
@@ -81,13 +150,13 @@ public class AiChatClient {
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(aiProperties.getBaseUrl() + "/chat/completions"))
+                    .timeout(Duration.ofSeconds(aiProperties.getTimeoutSeconds()))
                     .header("Authorization", "Bearer " + aiProperties.getApiKey())
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(requestBody), StandardCharsets.UTF_8))
                     .build();
 
-            HttpResponse<InputStream> response = HttpClient.newHttpClient()
-                    .send(request, HttpResponse.BodyHandlers.ofInputStream());
+            HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
             if (response.statusCode() >= 400) {
                 String errorBody = new String(response.body().readAllBytes(), StandardCharsets.UTF_8);
                 throw new IllegalStateException("AI 流式响应失败: HTTP " + response.statusCode() + " " + errorBody);
