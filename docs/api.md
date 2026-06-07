@@ -301,6 +301,7 @@ POST /api/projects/{projectId}/analyze
 - 执行时会删除该项目旧的实体和事件分析结果，并写入新的结果。
 - 成功后项目状态更新为 `ENTITY_READY`。
 - 当前实现为 AI 优先、规则兜底；AI 不可用时仍返回基础结构，避免联调中断。
+- 响应中的 `aiSuccess`、`fallbackUsed`、`generationMode`、`message` 用于前端展示本次分析是否由 AI 完成。
 
 成功响应：
 
@@ -313,6 +314,10 @@ POST /api/projects/{projectId}/analyze
     "status": "ENTITY_READY",
     "entityCount": 1,
     "eventCount": 1,
+    "generationMode": "AI",
+    "aiSuccess": true,
+    "fallbackUsed": false,
+    "message": "故事资产由 AI 抽取生成",
     "entities": [
       {
         "entityId": "C001",
@@ -490,6 +495,92 @@ GET /api/projects/{projectId}/scenes
 ```http
 POST /api/projects/{projectId}/scenes/{sceneId}/regenerate
 ```
+
+## 结构校验
+
+```http
+POST /api/projects/{projectId}/validate
+```
+
+说明：
+
+- 结构校验用于检查当前项目已生成 Scene 的基础可用性。
+- 校验会读取场景大纲和 Scene 详情；如果 Scene 尚未生成，后端会按现有生成逻辑补齐后再校验。
+- 当前校验规则包括：动作描写是否为空、对白是否为空、对白角色是否出现在该场景角色列表中、Scene 自身 warnings。
+- 校验不会改写小说正文、角色、地点或故事事件。
+
+成功响应：
+
+```json
+{
+  "success": true,
+  "message": "ok",
+  "data": {
+    "projectId": "proj_20260606_000001",
+    "status": "WARNING",
+    "items": [
+      {
+        "sceneId": "S001",
+        "level": "warning",
+        "field": "dialogue",
+        "message": "对白角色 C001 未出现在场景大纲角色列表中"
+      }
+    ]
+  }
+}
+```
+
+## 导出 YAML
+
+```http
+GET /api/projects/{projectId}/export?format=yaml
+```
+
+说明：
+
+- 当前只支持 `format=yaml`。
+- 导出前会读取场景大纲和 Scene 详情；如果 Scene 尚未生成，后端会按现有生成逻辑补齐后导出。
+- 导出成功后项目状态更新为 `COMPLETED`。
+- 该接口直接返回 `text/yaml;charset=UTF-8`，不包裹通用 JSON 响应。
+
+成功响应示例：
+
+```yaml
+schema_version: "1.0.0"
+meta:
+  project_id: "proj_20260606_000001"
+  title: "雨夜旧书店"
+  workflow: "reader-outline-writer-validator"
+scenes:
+  - scene_id: "S001"
+    seq_no: 1
+    title: "雨夜闯店"
+    action:
+      - "林舟推门而入，雨水顺着衣角滴在旧木地板上。"
+    dialogue:
+      - character_id: "C001"
+        line: "老板，还营业吗？"
+    source_refs:
+      - "ch1"
+    validation_status: "PASSED"
+```
+
+## 进度事件快照
+
+```http
+GET /api/projects/{projectId}/events
+```
+
+说明：
+
+- 当前接口使用 SSE 响应格式，但只发送当前项目状态快照后关闭连接。
+- 现阶段它不是完整实时进度流；真正的长任务阶段推送将在独立 SSE PR 中实现。
+- 故事事件列表接口是 `/story-events`，不要使用 `/events` 查询故事事件。
+
+当前会发送：
+
+- `phase.changed`：当前项目状态对应的阶段。
+- `job.completed`：当前快照完成事件，包含 `exportReady`。
 
 ## 调试示例
 
