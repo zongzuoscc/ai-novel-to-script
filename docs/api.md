@@ -8,7 +8,7 @@
 - 数据格式：`application/json`
 - 字符编码：`UTF-8`
 - 当前接口前缀：`/api`
-- AI 配置从本地 `.env` 读取：`AI_API_KEY`、`AI_BASE_URL`、`AI_MODEL_ID`
+- AI 配置从本地 `.env` 读取：`AI_API_KEY`、`AI_BASE_URL`、`AI_MODEL_ID`、`AI_TIMEOUT_SECONDS`、`AI_MAX_RETRIES`
 
 ## 通用响应结构
 
