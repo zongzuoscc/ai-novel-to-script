@@ -365,6 +365,7 @@ POST /api/projects/{projectId}/analyze
 - 执行时会删除该项目旧的实体、事件、场景大纲和 Scene 剧本，并写入新的故事资产结果。
 - 成功后项目状态更新为 `ENTITY_READY`。
 - AI 不可用时仍返回基础结构，避免联调中断。
+- 中长篇会按章节自动拆成多个 AI 批次，避免一次性把全书塞进模型上下文导致后续章节被截断。
 - 响应中的 `aiSuccess`、`fallbackUsed`、`generationMode`、`message` 用于前端展示本次分析是否由 AI 完成。
 
 成功响应：
@@ -426,6 +427,7 @@ POST /api/projects/{projectId}/analyze/incremental
 
 - 该接口用于章节追加后的增量分析。
 - 后端会找出尚未生成 `story_events` 的章节，只分析这些新增章节。
+- 新增章节较多时同样会按章节拆成多个 AI 批次。
 - 旧实体、旧事件、旧场景大纲和旧 Scene 剧本不会被删除。
 - 新实体会按实体类型、名称和别名尝试合并到已有实体；无法匹配时才分配新的 `C###` 或 `L###`。
 - 新事件会从当前最大 `eventOrder` 和最大 `E###` 后继续追加。

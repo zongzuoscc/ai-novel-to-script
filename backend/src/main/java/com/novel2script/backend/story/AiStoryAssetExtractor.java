@@ -7,13 +7,20 @@ import com.novel2script.backend.source.SourceChapter;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
 @Component
 public class AiStoryAssetExtractor {
 
-    private static final int MAX_STORY_CHARS = 12000;
+    private static final int MAX_BATCH_CHARS = 12000;
+
+    private static final int MAX_CHAPTER_CHARS = 6000;
 
     private final AiChatClient aiChatClient;
 
@@ -26,13 +33,20 @@ public class AiStoryAssetExtractor {
 
     public Result extract(String projectId, List<SourceChapter> chapters) {
         try {
-            String response = aiChatClient.completeJson(
-                    "你是小说剧本化系统的故事资产分析助手。只返回合法 JSON，不要输出解释。",
-                    buildPrompt(chapters)
-            );
-            JsonNode root = objectMapper.readTree(response);
-            List<StoryEntity> entities = parseEntities(projectId, root.path("entities"));
-            List<StoryEvent> events = parseEvents(projectId, chapters, root.path("events"));
+            List<StoryEntity> collectedEntities = new ArrayList<>();
+            List<StoryEvent> collectedEvents = new ArrayList<>();
+            for (List<SourceChapter> batch : buildChapterBatches(chapters)) {
+                String response = aiChatClient.completeJson(
+                        "你是小说剧本化系统的故事资产分析助手。只返回合法 JSON，不要输出解释。",
+                        buildPrompt(batch)
+                );
+                JsonNode root = objectMapper.readTree(response);
+                collectedEntities.addAll(parseEntities(projectId, root.path("entities")));
+                collectedEvents.addAll(parseEvents(projectId, batch, root.path("events")));
+            }
+
+            List<StoryEntity> entities = normalizeEntities(projectId, collectedEntities);
+            List<StoryEvent> events = normalizeEvents(projectId, collectedEvents, chapters);
             if (entities.isEmpty() || events.isEmpty()) {
                 throw new IllegalStateException("AI 故事资产为空");
             }
@@ -40,6 +54,26 @@ public class AiStoryAssetExtractor {
         } catch (Exception ex) {
             throw new IllegalStateException("AI 故事资产抽取失败", ex);
         }
+    }
+
+    private List<List<SourceChapter>> buildChapterBatches(List<SourceChapter> chapters) {
+        List<List<SourceChapter>> batches = new ArrayList<>();
+        List<SourceChapter> currentBatch = new ArrayList<>();
+        int currentLength = 0;
+        for (SourceChapter chapter : chapters) {
+            int chapterLength = Math.min(chapter.getCleanText().length(), MAX_CHAPTER_CHARS) + chapter.getTitle().length() + 16;
+            if (!currentBatch.isEmpty() && currentLength + chapterLength > MAX_BATCH_CHARS) {
+                batches.add(currentBatch);
+                currentBatch = new ArrayList<>();
+                currentLength = 0;
+            }
+            currentBatch.add(chapter);
+            currentLength += chapterLength;
+        }
+        if (!currentBatch.isEmpty()) {
+            batches.add(currentBatch);
+        }
+        return batches;
     }
 
     private List<StoryEntity> parseEntities(String projectId, JsonNode entitiesNode) {
@@ -96,6 +130,77 @@ public class AiStoryAssetExtractor {
         return "LOCATION".equalsIgnoreCase(value) ? StoryEntityType.LOCATION : StoryEntityType.CHARACTER;
     }
 
+    private List<StoryEntity> normalizeEntities(String projectId, List<StoryEntity> rawEntities) {
+        Map<String, EntityAccumulator> accumulators = new LinkedHashMap<>();
+        for (StoryEntity entity : rawEntities) {
+            String key = entityKey(entity.getEntityType(), entity.getCanonicalName());
+            EntityAccumulator accumulator = accumulators.computeIfAbsent(
+                    key,
+                    ignored -> new EntityAccumulator(entity.getEntityType(), entity.getCanonicalName())
+            );
+            accumulator.aliases.addAll(readJsonStringList(entity.getAliasesJson()));
+            accumulator.sourceRefs.addAll(readJsonStringList(entity.getSourceRefsJson()));
+            if (entity.getProfile() != null && !entity.getProfile().isBlank() && !"暂无说明".equals(entity.getProfile())) {
+                accumulator.profiles.add(entity.getProfile().trim());
+            }
+        }
+
+        List<EntityAccumulator> sorted = accumulators.values().stream()
+                .sorted(Comparator
+                        .comparing(EntityAccumulator::type)
+                        .thenComparing(EntityAccumulator::canonicalName))
+                .toList();
+        List<StoryEntity> entities = new ArrayList<>();
+        int characterIndex = 1;
+        int locationIndex = 1;
+        for (EntityAccumulator accumulator : sorted) {
+            String entityId = accumulator.type == StoryEntityType.LOCATION
+                    ? "L" + String.format(Locale.ROOT, "%03d", locationIndex++)
+                    : "C" + String.format(Locale.ROOT, "%03d", characterIndex++);
+            List<String> aliases = accumulator.aliases.isEmpty()
+                    ? List.of(accumulator.canonicalName)
+                    : List.copyOf(accumulator.aliases);
+            String profile = accumulator.profiles.isEmpty()
+                    ? "暂无说明"
+                    : String.join("\n", accumulator.profiles);
+            entities.add(new StoryEntity(
+                    projectId,
+                    entityId,
+                    accumulator.type,
+                    accumulator.canonicalName,
+                    writeJson(aliases),
+                    profile,
+                    writeJson(List.copyOf(accumulator.sourceRefs))
+            ));
+        }
+        return entities;
+    }
+
+    private List<StoryEvent> normalizeEvents(String projectId, List<StoryEvent> rawEvents, List<SourceChapter> chapters) {
+        Map<Long, Integer> chapterNoById = new LinkedHashMap<>();
+        for (SourceChapter chapter : chapters) {
+            chapterNoById.put(chapter.getId(), chapter.getChapterNo());
+        }
+        List<StoryEvent> sorted = rawEvents.stream()
+                .sorted(Comparator
+                        .comparingInt((StoryEvent event) -> chapterNoById.getOrDefault(event.getChapterId(), Integer.MAX_VALUE))
+                        .thenComparing(event -> event.getEventOrder() == null ? Integer.MAX_VALUE : event.getEventOrder()))
+                .toList();
+        List<StoryEvent> events = new ArrayList<>();
+        for (int i = 0; i < sorted.size(); i++) {
+            StoryEvent event = sorted.get(i);
+            event.setProjectId(projectId);
+            event.setEventId("E" + String.format(Locale.ROOT, "%03d", i + 1));
+            event.setEventOrder(i + 1);
+            events.add(event);
+        }
+        return events;
+    }
+
+    private String entityKey(StoryEntityType type, String name) {
+        return type.name() + ":" + (name == null ? "" : name.trim().toLowerCase(Locale.ROOT));
+    }
+
     private SourceChapter findChapterByNo(List<SourceChapter> chapters, int chapterNo) {
         return chapters.stream()
                 .filter(chapter -> chapter.getChapterNo() == chapterNo)
@@ -126,6 +231,15 @@ public class AiStoryAssetExtractor {
             return objectMapper.writeValueAsString(values);
         } catch (Exception ex) {
             throw new IllegalStateException("序列化 AI 故事资产失败", ex);
+        }
+    }
+
+    private List<String> readJsonStringList(String json) {
+        try {
+            JsonNode node = objectMapper.readTree(json);
+            return readStringArray(node, List.of());
+        } catch (Exception ex) {
+            return List.of();
         }
     }
 
@@ -165,14 +279,42 @@ public class AiStoryAssetExtractor {
     private String buildChapterText(List<SourceChapter> chapters) {
         StringBuilder builder = new StringBuilder();
         for (SourceChapter chapter : chapters) {
+            String cleanText = chapter.getCleanText();
+            String boundedText = cleanText.length() > MAX_CHAPTER_CHARS
+                    ? cleanText.substring(0, MAX_CHAPTER_CHARS)
+                    : cleanText;
             builder.append("ch").append(chapter.getChapterNo())
                     .append(" ").append(chapter.getTitle()).append('\n')
-                    .append(chapter.getCleanText()).append("\n\n");
-            if (builder.length() >= MAX_STORY_CHARS) {
-                return builder.substring(0, MAX_STORY_CHARS);
-            }
+                    .append(boundedText).append("\n\n");
         }
         return builder.toString();
+    }
+
+    private static final class EntityAccumulator {
+
+        private final StoryEntityType type;
+
+        private final String canonicalName;
+
+        private final Set<String> aliases = new LinkedHashSet<>();
+
+        private final Set<String> sourceRefs = new LinkedHashSet<>();
+
+        private final Set<String> profiles = new LinkedHashSet<>();
+
+        private EntityAccumulator(StoryEntityType type, String canonicalName) {
+            this.type = type;
+            this.canonicalName = canonicalName;
+            this.aliases.add(canonicalName);
+        }
+
+        private StoryEntityType type() {
+            return type;
+        }
+
+        private String canonicalName() {
+            return canonicalName;
+        }
     }
 
     public record Result(List<StoryEntity> entities, List<StoryEvent> events) {
