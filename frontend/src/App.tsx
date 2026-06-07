@@ -313,7 +313,10 @@ function App() {
   }
 
   async function runStoryAnalysis(targetProjectId: string) {
+    setAnalysisStatus("");
+    setAnalysisMessage("正在执行 AI 故事分析，抽取角色、地点和事件...");
     const result = await analyzeStoryAssets(targetProjectId);
+    setAnalysisMessage("故事分析完成，正在读取角色、地点和事件...");
     const [entities, events] = await Promise.all([
       getStoryEntities(targetProjectId),
       getStoryEvents(targetProjectId)
@@ -330,6 +333,7 @@ function App() {
     );
 
     try {
+      setOutlineMessage("正在生成并加载真实场景大纲...");
       const scenes = await getProjectOutline(targetProjectId);
       if (scenes.length > 0) {
         setOutlineScenes(scenes);
@@ -445,7 +449,7 @@ function App() {
     }
 
     setIsRegeneratingScene(true);
-    setSceneDetailMessage("");
+    setSceneDetailMessage("正在重新生成当前 Scene...");
 
     try {
       const detail = await regenerateProjectScene(project.projectId, selectedSceneId);
@@ -468,7 +472,7 @@ function App() {
     }
 
     setIsValidatingProject(true);
-    setValidationMessage("");
+    setValidationMessage("正在执行结构校验...");
 
     try {
       const report = await validateProjectScenes(project.projectId);
@@ -493,7 +497,7 @@ function App() {
     }
 
     setIsExportingYaml(true);
-    setYamlPreviewMessage("");
+    setYamlPreviewMessage("正在导出 YAML...");
 
     try {
       const yamlContent = await exportProjectYaml(project.projectId);
@@ -699,6 +703,7 @@ function App() {
     }
 
     let cancelled = false;
+    setOutlineMessage("正在加载真实场景大纲...");
 
     async function loadProjectOutline() {
       try {
@@ -773,6 +778,7 @@ function App() {
     }
 
     let cancelled = false;
+    setSceneDetailMessage("正在加载真实 Scene 详情...");
 
     async function loadSceneDetail() {
       try {

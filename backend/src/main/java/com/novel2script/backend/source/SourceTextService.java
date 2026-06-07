@@ -10,6 +10,8 @@ import com.novel2script.backend.source.dto.ChapterResponse;
 import com.novel2script.backend.source.dto.SubmitSourceRequest;
 import com.novel2script.backend.story.StoryEntityMapper;
 import com.novel2script.backend.story.StoryEventMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +19,8 @@ import java.util.List;
 
 @Service
 public class SourceTextService {
+
+    private static final Logger log = LoggerFactory.getLogger(SourceTextService.class);
 
     private final ProjectService projectService;
 
@@ -60,6 +64,8 @@ public class SourceTextService {
     }
 
     private List<ChapterResponse> submitSourceLocked(String projectId, SubmitSourceRequest request) {
+        long startedAt = System.currentTimeMillis();
+        log.info("开始提交小说正文: projectId={}", projectId);
         Project project = projectService.getProjectEntity(projectId);
         projectService.updateStatus(projectId, ProjectStatus.SOURCE_SUBMITTED);
 
@@ -84,6 +90,12 @@ public class SourceTextService {
             sourceChapterMapper.insertBatch(chapters);
         }
         projectService.updateStatus(projectId, ProjectStatus.CHAPTERED);
+        log.info(
+                "小说正文提交完成: projectId={}, chapterCount={}, elapsedMs={}",
+                projectId,
+                chapters.size(),
+                System.currentTimeMillis() - startedAt
+        );
 
         return sourceChapterMapper.findByProjectIdOrderByChapterNoAsc(projectId).stream()
                 .map(ChapterResponse::from)
