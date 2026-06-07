@@ -15,6 +15,8 @@ import com.novel2script.backend.story.StoryEntity;
 import com.novel2script.backend.story.StoryEntityMapper;
 import com.novel2script.backend.story.StoryEvent;
 import com.novel2script.backend.story.StoryEventMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +26,8 @@ import java.util.Locale;
 
 @Service
 public class SceneGenerationService {
+
+    private static final Logger log = LoggerFactory.getLogger(SceneGenerationService.class);
 
     private static final TypeReference<List<String>> STRING_LIST_TYPE = new TypeReference<>() {
     };
@@ -106,6 +110,8 @@ public class SceneGenerationService {
     }
 
     private List<OutlineScene> generateOutline(String projectId) {
+        long startedAt = System.currentTimeMillis();
+        log.info("开始生成场景大纲: projectId={}", projectId);
         List<StoryEvent> events = storyEventMapper.findByProjectIdOrderByEventOrderAsc(projectId);
         if (events.isEmpty()) {
             throw new IllegalArgumentException("请先执行故事中间资产分析");
@@ -119,15 +125,24 @@ public class SceneGenerationService {
                     buildOutlinePrompt(entities, events)
             ));
         } catch (Exception ex) {
+            log.warn("AI 场景大纲生成失败，切换规则兜底: projectId={}, reason={}", projectId, rootCauseMessage(ex));
             scenes = buildFallbackOutline(projectId, events);
         }
 
         outlineSceneMapper.insertBatch(scenes);
         projectService.updateStatus(projectId, ProjectStatus.OUTLINED);
+        log.info(
+                "场景大纲生成完成: projectId={}, sceneCount={}, elapsedMs={}",
+                projectId,
+                scenes.size(),
+                System.currentTimeMillis() - startedAt
+        );
         return outlineSceneMapper.findByProjectIdOrderBySeqNoAsc(projectId);
     }
 
     private SceneScript generateSceneScript(String projectId, String sceneId, boolean regenerating) {
+        long startedAt = System.currentTimeMillis();
+        log.info("开始生成 Scene: projectId={}, sceneId={}, regenerating={}", projectId, sceneId, regenerating);
         OutlineScene outlineScene = outlineSceneMapper.findByProjectIdAndSceneId(projectId, sceneId)
                 .orElseGet(() -> {
                     List<OutlineScene> scenes = generateOutline(projectId);
@@ -147,12 +162,32 @@ public class SceneGenerationService {
                     buildScenePrompt(project, outlineScene, entities, events, regenerating)
             ));
         } catch (Exception ex) {
+            log.warn("AI Scene 生成失败，切换规则兜底: projectId={}, sceneId={}, reason={}", projectId, sceneId, rootCauseMessage(ex));
             sceneScript = buildFallbackSceneScript(projectId, outlineScene);
         }
 
         sceneScriptMapper.insert(sceneScript);
         projectService.updateStatus(projectId, ProjectStatus.SCENE_GENERATING);
+        log.info(
+                "Scene 生成完成: projectId={}, sceneId={}, validationStatus={}, elapsedMs={}",
+                projectId,
+                sceneId,
+                sceneScript.getValidationStatus(),
+                System.currentTimeMillis() - startedAt
+        );
         return sceneScriptMapper.findByProjectIdAndSceneId(projectId, sceneId).orElse(sceneScript);
+    }
+
+    private String rootCauseMessage(Exception ex) {
+        Throwable current = ex;
+        while (current.getCause() != null) {
+            current = current.getCause();
+        }
+        String message = current.getMessage();
+        if (message == null || message.isBlank()) {
+            return current.getClass().getSimpleName();
+        }
+        return message.length() > 160 ? message.substring(0, 160) : message;
     }
 
     private List<OutlineScene> parseOutline(String projectId, String json) throws JsonProcessingException {

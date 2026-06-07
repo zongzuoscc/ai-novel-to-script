@@ -13,6 +13,8 @@ import com.novel2script.backend.source.SourceChapterMapper;
 import com.novel2script.backend.story.dto.StoryAnalysisResponse;
 import com.novel2script.backend.story.dto.StoryEntityResponse;
 import com.novel2script.backend.story.dto.StoryEventResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +34,8 @@ import java.util.regex.Pattern;
  */
 @Service
 public class StoryAnalysisService {
+
+    private static final Logger log = LoggerFactory.getLogger(StoryAnalysisService.class);
 
     private static final TypeReference<List<String>> STRING_LIST_TYPE = new TypeReference<>() {
     };
@@ -95,6 +99,8 @@ public class StoryAnalysisService {
     }
 
     private StoryAnalysisResponse analyzeLocked(String projectId) {
+        long startedAt = System.currentTimeMillis();
+        log.info("开始故事资产分析: projectId={}", projectId);
         projectService.getProjectEntity(projectId);
         List<SourceChapter> chapters = sourceChapterMapper.findByProjectIdOrderByChapterNoAsc(projectId);
         if (chapters.isEmpty()) {
@@ -118,6 +124,15 @@ public class StoryAnalysisService {
         }
 
         projectService.updateStatus(projectId, ProjectStatus.ENTITY_READY);
+        log.info(
+                "故事资产分析完成: projectId={}, mode={}, aiSuccess={}, entityCount={}, eventCount={}, elapsedMs={}",
+                projectId,
+                buildResult.generationMode(),
+                buildResult.aiSuccess(),
+                entities.size(),
+                events.size(),
+                System.currentTimeMillis() - startedAt
+        );
         return new StoryAnalysisResponse(
                 projectId,
                 listEntities(projectId),
@@ -140,6 +155,7 @@ public class StoryAnalysisService {
             );
         } catch (Exception ex) {
             // AI 服务不可用或返回格式异常时，保留可运行的规则兜底结果，便于前后端继续联调。
+            log.warn("AI 故事资产抽取失败，切换规则兜底: projectId={}, reason={}", projectId, rootCauseMessage(ex));
             return new AssetBuildResult(
                     new AiStoryAssetExtractor.Result(buildEntities(projectId, chapters), buildEvents(projectId, chapters)),
                     "FALLBACK",

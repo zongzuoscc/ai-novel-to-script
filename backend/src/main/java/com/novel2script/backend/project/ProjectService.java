@@ -2,6 +2,8 @@ package com.novel2script.backend.project;
 
 import com.novel2script.backend.project.dto.CreateProjectRequest;
 import com.novel2script.backend.project.dto.ProjectResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,6 +14,8 @@ import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 public class ProjectService {
+
+    private static final Logger log = LoggerFactory.getLogger(ProjectService.class);
 
     private static final DateTimeFormatter PROJECT_UID_DATE_FORMAT = DateTimeFormatter.BASIC_ISO_DATE;
 
@@ -25,6 +29,7 @@ public class ProjectService {
     public ProjectResponse createProject(CreateProjectRequest request) {
         Project project = new Project(buildProjectId(), request.getTitle().trim());
         projectMapper.insert(project);
+        log.info("项目创建完成: projectId={}, title={}", project.getProjectId(), project.getTitle());
         return ProjectResponse.from(getProjectEntity(project.getProjectId()));
     }
 
@@ -56,6 +61,7 @@ public class ProjectService {
         if (affectedRows == 0) {
             throw new IllegalArgumentException("项目不存在: " + projectId);
         }
+        log.info("项目状态已更新: projectId={}, status={}", projectId, status);
     }
 
     private String buildProjectId() {

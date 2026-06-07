@@ -8,6 +8,8 @@ import com.novel2script.backend.scene.SceneGenerationService;
 import com.novel2script.backend.scene.dto.OutlineSceneResponse;
 import com.novel2script.backend.scene.dto.SceneScriptResponse;
 import com.novel2script.backend.workflow.dto.ValidationReportResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +20,8 @@ import java.util.Set;
 
 @Service
 public class WorkflowService {
+
+    private static final Logger log = LoggerFactory.getLogger(WorkflowService.class);
 
     private final ProjectService projectService;
 
@@ -41,6 +45,8 @@ public class WorkflowService {
     }
 
     private ValidationReportResponse validateProjectLocked(String projectId) {
+        long startedAt = System.currentTimeMillis();
+        log.info("开始校验项目: projectId={}", projectId);
         projectService.getProjectEntity(projectId);
         List<OutlineSceneResponse> outline = sceneGenerationService.listOutline(projectId);
         List<ValidationReportResponse.ValidationItemResponse> items = new ArrayList<>();
@@ -74,6 +80,13 @@ public class WorkflowService {
 
         boolean hasError = items.stream().anyMatch(item -> "error".equals(item.level()));
         String status = hasError ? "FAILED" : items.isEmpty() ? "PASSED" : "WARNING";
+        log.info(
+                "项目校验完成: projectId={}, status={}, itemCount={}, elapsedMs={}",
+                projectId,
+                status,
+                items.size(),
+                System.currentTimeMillis() - startedAt
+        );
         return new ValidationReportResponse(projectId, status, items);
     }
 
@@ -83,6 +96,8 @@ public class WorkflowService {
     }
 
     private String exportYamlLocked(String projectId) {
+        long startedAt = System.currentTimeMillis();
+        log.info("开始导出 YAML: projectId={}", projectId);
         Project project = projectService.getProjectEntity(projectId);
         List<OutlineSceneResponse> outline = sceneGenerationService.listOutline(projectId);
         List<SceneScriptResponse> scenes = new ArrayList<>();
@@ -117,7 +132,15 @@ public class WorkflowService {
             yaml.append("    validation_status: \"").append(escapeYaml(scene.getValidationStatus())).append("\"\n");
         }
         projectService.updateStatus(projectId, ProjectStatus.COMPLETED);
-        return yaml.toString();
+        String yamlContent = yaml.toString();
+        log.info(
+                "YAML 导出完成: projectId={}, sceneCount={}, yamlLength={}, elapsedMs={}",
+                projectId,
+                scenes.size(),
+                yamlContent.length(),
+                System.currentTimeMillis() - startedAt
+        );
+        return yamlContent;
     }
 
     private String escapeYaml(String value) {
