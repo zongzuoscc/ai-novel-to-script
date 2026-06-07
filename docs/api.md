@@ -10,7 +10,7 @@
 - 当前接口前缀：`/api`
 - AI 配置从本地 `.env` 读取：`AI_API_KEY`、`AI_BASE_URL`、`AI_MODEL_ID`、`AI_TIMEOUT_SECONDS`、`AI_MAX_RETRIES`
 - 小说上传限制从本地 `.env` 读取：`SOURCE_FILE_MAX_MB`、`SOURCE_REQUEST_MAX_MB`
-- 工作流保护配置从本地 `.env` 读取：`WORKFLOW_MAX_AUTO_GENERATE_SCENES`
+- 工作流保护配置从本地 `.env` 读取：`WORKFLOW_MAX_AUTO_GENERATE_SCENES`、`OUTLINE_EVENTS_PER_BATCH`
 
 ## 通用响应结构
 
@@ -513,6 +513,8 @@ GET /api/projects/{projectId}/outline
 - 依赖已执行 `POST /api/projects/{projectId}/analyze`。
 - 首次查询时会生成并保存真实场景大纲。
 - 事件较多时会按事件批次生成场景大纲，避免一次性超过 AI 上下文。
+- 如果某个场景大纲批次 AI 超时或失败，后端会自动把该批次拆成更小批次重试；只有单个事件仍失败时才使用规则兜底。
+- `OUTLINE_EVENTS_PER_BATCH` 可控制每批故事事件数量，默认值为 `6`。中长篇演示建议设置为 `3` 到 `6`。
 - 成功后项目状态更新为 `OUTLINED`。
 
 成功响应：

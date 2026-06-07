@@ -18,6 +18,7 @@ import com.novel2script.backend.story.StoryEventMapper;
 import com.novel2script.backend.workflow.ProgressEventPublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -42,8 +43,6 @@ public class SceneGenerationService {
     private static final TypeReference<List<SceneScriptResponse.DialogueResponse>> DIALOGUE_LIST_TYPE = new TypeReference<>() {
     };
 
-    private static final int MAX_OUTLINE_EVENTS_PER_BATCH = 20;
-
     private final ProjectService projectService;
     private final StoryEntityMapper storyEntityMapper;
     private final StoryEventMapper storyEventMapper;
@@ -53,6 +52,7 @@ public class SceneGenerationService {
     private final ObjectMapper objectMapper;
     private final ProjectOperationLock projectOperationLock;
     private final ProgressEventPublisher progressEventPublisher;
+    private final int maxOutlineEventsPerBatch;
 
     public SceneGenerationService(
             ProjectService projectService,
@@ -63,7 +63,8 @@ public class SceneGenerationService {
             AiChatClient aiChatClient,
             ObjectMapper objectMapper,
             ProjectOperationLock projectOperationLock,
-            ProgressEventPublisher progressEventPublisher
+            ProgressEventPublisher progressEventPublisher,
+            @Value("${OUTLINE_EVENTS_PER_BATCH:6}") int maxOutlineEventsPerBatch
     ) {
         this.projectService = projectService;
         this.storyEntityMapper = storyEntityMapper;
@@ -74,6 +75,7 @@ public class SceneGenerationService {
         this.objectMapper = objectMapper;
         this.projectOperationLock = projectOperationLock;
         this.progressEventPublisher = progressEventPublisher;
+        this.maxOutlineEventsPerBatch = Math.max(1, maxOutlineEventsPerBatch);
     }
 
     @Transactional
@@ -343,28 +345,15 @@ public class SceneGenerationService {
         int nextSeqNo = startSeqNo;
         int nextSceneNo = startSceneNo;
         for (List<StoryEvent> batch : buildEventBatches(events)) {
-            List<OutlineScene> batchScenes;
-            try {
-                String systemPrompt = incremental
-                        ? "你是专业影视编剧，负责把新增故事事件拆成追加 Scene 场景大纲。只返回合法 JSON。"
-                        : "你是专业影视编剧，负责把小说故事资产拆成 Scene 级场景大纲。只返回合法 JSON。";
-                String userPrompt = incremental
-                        ? buildIncrementalOutlinePrompt(entities, batch, contextScenes)
-                        : buildOutlinePrompt(entities, batch);
-                batchScenes = parseOutline(
-                        projectId,
-                        aiChatClient.completeJson(systemPrompt, userPrompt),
-                        nextSeqNo,
-                        nextSceneNo
-                );
-                if (batchScenes.isEmpty()) {
-                    batchScenes = buildFallbackOutline(projectId, batch, nextSeqNo, nextSceneNo);
-                }
-            } catch (Exception ex) {
-                log.warn("AI 场景大纲批次生成失败，切换规则兜底: projectId={}, incremental={}, reason={}", projectId, incremental, rootCauseMessage(ex));
-                progressEventPublisher.phaseChanged(projectId, "outline_generating", 56, "AI 场景大纲批次生成失败，已切换规则兜底");
-                batchScenes = buildFallbackOutline(projectId, batch, nextSeqNo, nextSceneNo);
-            }
+            List<OutlineScene> batchScenes = generateOutlineBatchWithSplit(
+                    projectId,
+                    entities,
+                    batch,
+                    contextScenes,
+                    nextSeqNo,
+                    nextSceneNo,
+                    incremental
+            );
             scenes.addAll(batchScenes);
             contextScenes.addAll(batchScenes);
             nextSeqNo += batchScenes.size();
@@ -373,10 +362,112 @@ public class SceneGenerationService {
         return scenes;
     }
 
+    private List<OutlineScene> generateOutlineBatchWithSplit(
+            String projectId,
+            List<StoryEntity> entities,
+            List<StoryEvent> batch,
+            List<OutlineScene> contextScenes,
+            int startSeqNo,
+            int startSceneNo,
+            boolean incremental
+    ) {
+        try {
+            List<OutlineScene> scenes = generateOutlineBatchByAi(
+                    projectId,
+                    entities,
+                    batch,
+                    contextScenes,
+                    startSeqNo,
+                    startSceneNo,
+                    incremental
+            );
+            if (!scenes.isEmpty()) {
+                return scenes;
+            }
+            throw new IllegalStateException("AI 场景大纲返回空结果");
+        } catch (Exception ex) {
+            if (batch.size() > 1) {
+                int middle = batch.size() / 2;
+                List<StoryEvent> firstHalf = batch.subList(0, middle);
+                List<StoryEvent> secondHalf = batch.subList(middle, batch.size());
+                log.warn(
+                        "AI 场景大纲批次失败，自动拆分重试: projectId={}, incremental={}, batchSize={}, reason={}",
+                        projectId,
+                        incremental,
+                        batch.size(),
+                        rootCauseMessage(ex)
+                );
+                progressEventPublisher.phaseChanged(
+                        projectId,
+                        "outline_generating",
+                        56,
+                        "AI 场景大纲批次较大，已自动拆分为更小批次重试"
+                );
+
+                List<OutlineScene> firstScenes = generateOutlineBatchWithSplit(
+                        projectId,
+                        entities,
+                        firstHalf,
+                        contextScenes,
+                        startSeqNo,
+                        startSceneNo,
+                        incremental
+                );
+                List<OutlineScene> nextContextScenes = new ArrayList<>(contextScenes);
+                nextContextScenes.addAll(firstScenes);
+                List<OutlineScene> secondScenes = generateOutlineBatchWithSplit(
+                        projectId,
+                        entities,
+                        secondHalf,
+                        nextContextScenes,
+                        startSeqNo + firstScenes.size(),
+                        startSceneNo + firstScenes.size(),
+                        incremental
+                );
+
+                List<OutlineScene> mergedScenes = new ArrayList<>(firstScenes);
+                mergedScenes.addAll(secondScenes);
+                return mergedScenes;
+            }
+
+            log.warn(
+                    "AI 场景大纲单事件生成失败，切换规则兜底: projectId={}, incremental={}, reason={}",
+                    projectId,
+                    incremental,
+                    rootCauseMessage(ex)
+            );
+            progressEventPublisher.phaseChanged(projectId, "outline_generating", 56, "单个事件 AI 场景大纲生成失败，已切换规则兜底");
+            return buildFallbackOutline(projectId, batch, startSeqNo, startSceneNo);
+        }
+    }
+
+    private List<OutlineScene> generateOutlineBatchByAi(
+            String projectId,
+            List<StoryEntity> entities,
+            List<StoryEvent> batch,
+            List<OutlineScene> contextScenes,
+            int startSeqNo,
+            int startSceneNo,
+            boolean incremental
+    ) throws JsonProcessingException {
+        String systemPrompt = incremental
+                ? "你是专业影视编剧，负责把新增故事事件拆成追加 Scene 场景大纲。只返回合法 JSON。"
+                : "你是专业影视编剧，负责把小说故事资产拆成 Scene 级场景大纲。只返回合法 JSON。";
+        String userPrompt = incremental
+                ? buildIncrementalOutlinePrompt(entities, batch, contextScenes)
+                : buildOutlinePrompt(entities, batch);
+        return parseOutline(
+                projectId,
+                aiChatClient.completeJson(systemPrompt, userPrompt),
+                startSeqNo,
+                startSceneNo
+        );
+    }
+
     private List<List<StoryEvent>> buildEventBatches(List<StoryEvent> events) {
         List<List<StoryEvent>> batches = new ArrayList<>();
-        for (int i = 0; i < events.size(); i += MAX_OUTLINE_EVENTS_PER_BATCH) {
-            batches.add(events.subList(i, Math.min(i + MAX_OUTLINE_EVENTS_PER_BATCH, events.size())));
+        for (int i = 0; i < events.size(); i += maxOutlineEventsPerBatch) {
+            batches.add(events.subList(i, Math.min(i + maxOutlineEventsPerBatch, events.size())));
         }
         return batches;
     }
