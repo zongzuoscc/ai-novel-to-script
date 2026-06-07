@@ -18,6 +18,18 @@ Content-Type: text/plain; charset=utf-8
 
 < ../../../../../../小说.txt
 
+### 2-可选. 上传小说文件
+# 和上面的“提交小说正文”二选一执行即可；重复执行会替换当前项目旧章节。
+POST http://localhost:8080/api/projects/{{projectId}}/source/upload
+Content-Type: multipart/form-data; boundary=novel_upload
+
+--novel_upload
+Content-Disposition: form-data; name="file"; filename="小说.txt"
+Content-Type: text/plain; charset=utf-8
+
+< ../../../../../../小说.txt
+--novel_upload--
+
 ### 3. 查询章节，确认小说已经写入数据库
 GET http://localhost:8080/api/projects/{{projectId}}/chapters
 

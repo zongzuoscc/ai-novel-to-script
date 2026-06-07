@@ -213,6 +213,34 @@ POST /api/projects/{projectId}/source
 }
 ```
 
+## 上传小说文件
+
+```http
+POST /api/projects/{projectId}/source/upload
+Content-Type: multipart/form-data
+```
+
+路径参数：
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `projectId` | string | 项目 ID，格式 `proj_YYYYMMDD_xxxxxx` |
+
+表单字段：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `file` | file | 是 | 小说文件，仅支持 `.txt` 或 `.md` |
+
+处理规则：
+
+- 后端读取上传文件内容后，复用 `POST /api/projects/{projectId}/source` 的章节切分和入库逻辑。
+- 文件大小不能超过 2MB。
+- 编码优先按 UTF-8 解析，失败时使用 GB18030 兜底。
+- 上传成功后会替换该项目旧章节，并清空旧的实体、事件、场景大纲和 Scene 结果。
+
+成功响应与“提交小说文本”一致，返回切分后的章节列表。
+
 ## 查询章节列表
 
 ```http

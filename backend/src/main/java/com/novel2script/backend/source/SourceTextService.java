@@ -15,13 +15,25 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 public class SourceTextService {
 
     private static final Logger log = LoggerFactory.getLogger(SourceTextService.class);
+
+    private static final long MAX_SOURCE_FILE_SIZE = 2 * 1024 * 1024;
+
+    private static final Charset GB18030 = Charset.forName("GB18030");
 
     private final ProjectService projectService;
 
@@ -68,6 +80,19 @@ public class SourceTextService {
         return projectOperationLock.execute(projectId, () -> submitSourceLocked(projectId, request));
     }
 
+    @Transactional
+    public List<ChapterResponse> submitSourceFile(String projectId, MultipartFile file) {
+        SubmitSourceRequest request = new SubmitSourceRequest();
+        request.setContent(readSourceFileContent(file));
+        log.info(
+                "收到小说文件上传: projectId={}, filename={}, size={}",
+                projectId,
+                file == null ? "" : file.getOriginalFilename(),
+                file == null ? 0 : file.getSize()
+        );
+        return projectOperationLock.execute(projectId, () -> submitSourceLocked(projectId, request));
+    }
+
     private List<ChapterResponse> submitSourceLocked(String projectId, SubmitSourceRequest request) {
         long startedAt = System.currentTimeMillis();
         log.info("开始提交小说正文: projectId={}", projectId);
@@ -108,6 +133,52 @@ public class SourceTextService {
         return sourceChapterMapper.findByProjectIdOrderByChapterNoAsc(projectId).stream()
                 .map(ChapterResponse::from)
                 .toList();
+    }
+
+    private String readSourceFileContent(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("上传的小说文件不能为空");
+        }
+        if (file.getSize() > MAX_SOURCE_FILE_SIZE) {
+            throw new IllegalArgumentException("小说文件不能超过 2MB");
+        }
+
+        String filename = file.getOriginalFilename() == null ? "" : file.getOriginalFilename();
+        String lowerFilename = filename.toLowerCase(Locale.ROOT);
+        if (!lowerFilename.endsWith(".txt") && !lowerFilename.endsWith(".md")) {
+            throw new IllegalArgumentException("仅支持上传 .txt 或 .md 小说文件");
+        }
+
+        try {
+            byte[] bytes = file.getBytes();
+            String content = decodeText(bytes);
+            if (content.isBlank()) {
+                throw new IllegalArgumentException("小说文件内容不能为空");
+            }
+            return content;
+        } catch (IOException ex) {
+            throw new IllegalArgumentException("读取小说文件失败", ex);
+        }
+    }
+
+    private String decodeText(byte[] bytes) {
+        try {
+            return decodeStrict(bytes, StandardCharsets.UTF_8);
+        } catch (CharacterCodingException ex) {
+            try {
+                return decodeStrict(bytes, GB18030);
+            } catch (CharacterCodingException nestedEx) {
+                throw new IllegalArgumentException("小说文件编码不支持，请使用 UTF-8 或 GB18030 编码");
+            }
+        }
+    }
+
+    private String decodeStrict(byte[] bytes, Charset charset) throws CharacterCodingException {
+        return charset.newDecoder()
+                .onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT)
+                .decode(ByteBuffer.wrap(bytes))
+                .toString();
     }
 
     @Transactional(readOnly = true)
