@@ -45,6 +45,22 @@ public class SourceTextController {
         return ApiResponse.ok(sourceTextService.submitSourceFile(projectId, file));
     }
 
+    @PostMapping(value = "/chapters/append", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ApiResponse<List<ChapterResponse>> appendSource(
+            @PathVariable String projectId,
+            @Valid @RequestBody SubmitSourceRequest request
+    ) {
+        return ApiResponse.ok(sourceTextService.appendSource(projectId, request));
+    }
+
+    @PostMapping(value = "/chapters/append", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<List<ChapterResponse>> appendSourceFile(
+            @PathVariable String projectId,
+            @RequestParam("file") MultipartFile file
+    ) {
+        return ApiResponse.ok(sourceTextService.appendSourceFile(projectId, file));
+    }
+
     @PostMapping(value = "/source", consumes = MediaType.TEXT_PLAIN_VALUE)
     public ApiResponse<List<ChapterResponse>> submitSourceText(
             @PathVariable String projectId,

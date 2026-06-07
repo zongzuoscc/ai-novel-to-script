@@ -30,6 +30,27 @@ Content-Type: text/plain; charset=utf-8
 < ../../../../../../小说.txt
 --novel_upload--
 
+### 2-可选. 追加小说文本章节
+# 追加接口不会删除当前项目旧章节、旧场景和旧剧本。
+POST http://localhost:8080/api/projects/{{projectId}}/chapters/append
+Content-Type: application/json; charset=utf-8
+
+{
+  "content": "第三章 霓虹深处\n林舟把新的线索夹进旧书页。"
+}
+
+### 2-可选. 追加小说文件章节
+# 和上面的追加文本二选一执行即可；新章节会从当前最大 chapterNo 后继续编号。
+POST http://localhost:8080/api/projects/{{projectId}}/chapters/append
+Content-Type: multipart/form-data; boundary=novel_append
+
+--novel_append
+Content-Disposition: form-data; name="file"; filename="小说.txt"
+Content-Type: text/plain; charset=utf-8
+
+< ../../../../../../小说.txt
+--novel_append--
+
 ### 3. 查询章节，确认小说已经写入数据库
 GET http://localhost:8080/api/projects/{{projectId}}/chapters
 
