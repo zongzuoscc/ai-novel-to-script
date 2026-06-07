@@ -575,7 +575,7 @@ public class SceneGenerationService {
     private String buildOutlinePrompt(List<StoryEntity> entities, List<StoryEvent> events) {
         return """
                 请根据故事实体和事件生成 Scene 级场景大纲。
-                只返回 JSON：
+                只返回 JSON，不要使用 Markdown 代码块，不要输出解释：
                 {
                   "scenes": [
                     {
@@ -589,10 +589,13 @@ public class SceneGenerationService {
                   ]
                 }
                 要求：
-                1. 每个关键事件至少生成 1 个场景。
-                2. characters 只能使用实体中的角色 ID。
-                3. locationId 优先使用实体中的地点 ID。
-                4. sourceRefs 沿用事件中的 sourceRefs。
+                1. 场景必须严格按故事事件输入顺序排列，不要倒叙重排。
+                2. 每个关键事件至少生成 1 个场景；同一事件只有在发生明显地点、时间或人物目标变化时才拆成多个场景。
+                3. characters 只能使用实体中的角色 ID，不要使用角色姓名或新增 ID。
+                4. locationId 必须优先使用实体中的地点 ID；无法判断时使用最接近事件发生地的地点 ID。
+                5. sourceRefs 必须沿用对应事件中的 sourceRefs，不要编造不存在的章节引用。
+                6. slugline.intExt 只能是 INT 或 EXT，timeOfDay 只能是 DAY、NIGHT、LATE_NIGHT。
+                7. purpose.plot 写清本场推动的剧情结果，purpose.character 写清角色选择或关系变化。
 
                 故事实体：
                 %s
@@ -606,7 +609,7 @@ public class SceneGenerationService {
         return """
                 请只根据新增故事事件生成追加 Scene 场景大纲。
                 不要重写已有场景，不要引用旧事件生成重复场景。
-                只返回 JSON：
+                只返回 JSON，不要使用 Markdown 代码块，不要输出解释：
                 {
                   "scenes": [
                     {
@@ -620,11 +623,13 @@ public class SceneGenerationService {
                   ]
                 }
                 要求：
-                1. 每个新增关键事件至少生成 1 个场景。
-                2. characters 只能使用实体中的角色 ID。
-                3. locationId 优先使用实体中的地点 ID。
-                4. sourceRefs 必须沿用新增事件中的 sourceRefs。
-                5. 输出只包含新增场景，不包含已有场景。
+                1. 新增场景必须严格按新增故事事件输入顺序排列，并接在已有场景之后。
+                2. 每个新增关键事件至少生成 1 个场景；同一事件只有在发生明显地点、时间或人物目标变化时才拆成多个场景。
+                3. characters 只能使用实体中的角色 ID，不要使用角色姓名或新增 ID。
+                4. locationId 必须优先使用实体中的地点 ID；无法判断时使用最接近事件发生地的地点 ID。
+                5. sourceRefs 必须沿用新增事件中的 sourceRefs，不要编造不存在的章节引用。
+                6. slugline.intExt 只能是 INT 或 EXT，timeOfDay 只能是 DAY、NIGHT、LATE_NIGHT。
+                7. 输出只包含新增场景，不包含已有场景。
 
                 已有场景：
                 %s
@@ -643,7 +648,7 @@ public class SceneGenerationService {
                 项目标题：%s
                 是否重新生成：%s
 
-                只返回 JSON：
+                只返回 JSON，不要使用 Markdown 代码块，不要输出解释：
                 {
                   "title": "场景标题",
                   "action": ["动作描写"],
@@ -653,10 +658,12 @@ public class SceneGenerationService {
                   "warnings": []
                 }
                 要求：
-                1. action 为 2 到 5 条，使用影视剧本动作描述。
-                2. dialogue 为 1 到 6 条，只使用角色 ID。
-                3. 不新增契约外字段。
-                4. 如果信息不足，warnings 写明原因，validationStatus 使用 WARNING。
+                1. 严格围绕场景大纲和 sourceRefs 对应事件生成，不要续写其他章节内容。
+                2. action 为 2 到 5 条，使用可拍摄的影视剧本动作描述，避免心理分析和旁白解释。
+                3. dialogue 为 1 到 6 条，characterId 只能使用场景大纲 characters 中出现的角色 ID。
+                4. sourceRefs 必须沿用场景大纲中的 sourceRefs。
+                5. 不新增契约外字段。
+                6. 如果信息不足，warnings 写明原因，validationStatus 使用 WARNING；否则使用 PASSED。
 
                 场景大纲：
                 %s
@@ -683,10 +690,11 @@ public class SceneGenerationService {
                 C002：...
 
                 要求：
-                1. 使用中文影视剧本表达。
+                1. 使用中文影视剧本表达，实时输出时保持自然段完整。
                 2. 动作描写 2 到 5 条，对白 1 到 6 条。
-                3. 对白角色优先使用角色 ID，不要新增未给出的角色 ID。
-                4. 这是流式预览，不需要输出 JSON，不需要 Markdown 代码块。
+                3. 对白角色只能使用场景大纲 characters 中出现的角色 ID，不要新增未给出的角色 ID。
+                4. 严格围绕场景大纲和 sourceRefs 对应事件生成，不要续写其他章节内容。
+                5. 这是流式预览，不需要输出 JSON，不需要 Markdown 代码块。
 
                 场景大纲：
                 %s

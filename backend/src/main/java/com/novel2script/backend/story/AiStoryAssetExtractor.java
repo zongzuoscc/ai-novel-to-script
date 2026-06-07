@@ -246,7 +246,8 @@ public class AiStoryAssetExtractor {
     private String buildPrompt(List<SourceChapter> chapters) {
         return """
                 请从小说文本中抽取剧本改编需要的故事资产。
-                只返回 JSON，格式如下：
+                只返回 JSON，不要使用 Markdown 代码块，不要输出解释。
+                格式如下：
                 {
                   "entities": [
                     {
@@ -267,9 +268,13 @@ public class AiStoryAssetExtractor {
                   ]
                 }
                 要求：
-                1. 角色和地点总数控制在 4 到 12 个。
-                2. 事件按故事发生顺序排列，每章至少 1 个关键事件。
-                3. sourceRefs 只使用 ch + 章节号，例如 ch1。
+                1. 只抽取对剧情推进或场景调度有用的角色和地点，角色和地点总数控制在 4 到 12 个。
+                2. entityType 只能使用 CHARACTER 或 LOCATION，canonicalName 使用原文中最稳定的中文名称。
+                3. aliases 只放原文出现过的称呼，不要编造外号。
+                4. 事件必须严格按输入章节顺序和章节内发生顺序排列，每章至少 1 个关键事件，最多 4 个关键事件。
+                5. sourceRefs 只使用 ch + 章节号，例如 ch1，不要使用页码、段落号或不存在的章节号。
+                6. summary 用 1 到 2 句中文说明事件的起因、行动和结果，不要写成分析评论。
+                7. 不要抽取和当前批次无关的旧章节内容。
 
                 小说文本：
                 %s
