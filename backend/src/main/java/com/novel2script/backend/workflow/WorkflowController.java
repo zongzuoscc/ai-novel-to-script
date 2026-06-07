@@ -14,8 +14,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.io.IOException;
-
 @RestController
 @RequestMapping("/api/projects/{projectId}")
 public class WorkflowController {
@@ -52,7 +50,7 @@ public class WorkflowController {
     }
 
     @GetMapping("/events")
-    public SseEmitter streamEvents(@PathVariable String projectId) throws IOException {
+    public SseEmitter streamEvents(@PathVariable String projectId) {
         Project project = projectService.getProjectEntity(projectId);
         return progressEventPublisher.subscribe(project);
     }
