@@ -403,6 +403,41 @@ button {
   font: inherit;
 }
 
+.source-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.file-picker {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 42px;
+  border: 1px dashed #98a2b3;
+  border-radius: 8px;
+  color: #344054;
+  background: #f8fafc;
+  cursor: pointer;
+}
+
+.file-picker input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.file-picker:has(input:disabled) {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.source-file-meta {
+  color: #667085;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
 .asset-list {
   display: grid;
   gap: 12px;

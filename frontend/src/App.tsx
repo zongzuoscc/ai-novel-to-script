@@ -13,6 +13,7 @@ import {
   regenerateProjectScene,
   summarizeProjectChapters,
   submitProjectSource,
+  uploadProjectSourceFile,
   validateProjectScenes
 } from "./api/client";
 import type {
@@ -150,6 +151,7 @@ function App() {
   const [projectKeyword, setProjectKeyword] = useState("");
   const [projectTitleInput, setProjectTitleInput] = useState("");
   const [sourceTextInput, setSourceTextInput] = useState("");
+  const [sourceFileInput, setSourceFileInput] = useState<File | null>(null);
   const [project, setProject] = useState<ProjectViewModel>(mockProject);
   const [chapters, setChapters] = useState<ChapterViewModel[]>([]);
   const [outlineScenes, setOutlineScenes] = useState<OutlineSceneViewModel[]>(mockOutlineScenes);
@@ -369,6 +371,53 @@ function App() {
     return result;
   }
 
+  async function completeSourceSubmission(nextChapters: ChapterViewModel[]) {
+    setChapters(nextChapters);
+    setOutlineScenes(mockOutlineScenes);
+    setOutlineSourceMode("mock");
+    setOutlineMessage("正文已更新，真实场景大纲生成后会自动替换当前 mock 大纲。");
+    setSceneDetail(mockSceneMap[mockOutlineScenes[0]?.sceneId] ?? null);
+    setSceneDetailSourceMode("mock");
+    setSceneDetailMessage("正文已更新，真实 Scene 详情生成后会自动替换当前 mock 内容。");
+    setValidationReportData(mockValidationReport);
+    setValidationSourceMode("mock");
+    setValidationMessage("正文已更新，真实校验结果生成后会自动替换当前 mock 报告。");
+    setYamlPreviewContent(
+      buildYamlPreview(mockSceneMap[mockOutlineScenes[0]?.sceneId] ?? null, project)
+    );
+    setYamlSourceMode("mock");
+    setYamlPreviewMessage("正文已更新，真实 YAML 导出就绪后会替换当前 mock 预览。");
+    setProgressStreamMessage("");
+    setProgressStreamPhase("");
+    setProgressStreamValue(null);
+    setProgressSourceMode("static");
+    setStoryEntities([]);
+    setStoryEvents([]);
+    setChapterSummaryMessage("");
+    setSourceSubmitMessage(
+      `小说已提交到当前项目，并切分为 ${nextChapters.length} 个章节，正在自动执行故事分析。`
+    );
+
+    setIsAnalyzing(true);
+    try {
+      await runStoryAnalysis(project.projectId);
+      setSourceSubmitMessage(
+        `小说已提交到当前项目，并切分为 ${nextChapters.length} 个章节，故事分析已完成。`
+      );
+    } catch (analysisError) {
+      const message = analysisError instanceof Error ? analysisError.message : "自动故事分析失败";
+      setAnalysisStatus("error");
+      setAnalysisMessage(message);
+      setSourceSubmitMessage(
+        `小说已提交到当前项目，并切分为 ${nextChapters.length} 个章节，但自动分析失败，可点击“执行分析”重试。`
+      );
+      await loadProjectDetail(project.projectId);
+      await refreshProjectList();
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }
+
   async function handleSubmitSourceText() {
     const content = sourceTextInput.trim();
     if (connectionMode !== "connected" || !content || isSubmittingSource || isAnalyzing) {
@@ -385,53 +434,35 @@ function App() {
     try {
       // 对齐开发契约：小说正文提交到 POST /api/projects/{projectId}/source。
       const nextChapters = await submitProjectSource(project.projectId, content);
-      setChapters(nextChapters);
-      setOutlineScenes(mockOutlineScenes);
-      setOutlineSourceMode("mock");
-      setOutlineMessage("正文已更新，真实场景大纲生成后会自动替换当前 mock 大纲。");
-      setSceneDetail(mockSceneMap[mockOutlineScenes[0]?.sceneId] ?? null);
-      setSceneDetailSourceMode("mock");
-      setSceneDetailMessage("正文已更新，真实 Scene 详情生成后会自动替换当前 mock 内容。");
-      setValidationReportData(mockValidationReport);
-      setValidationSourceMode("mock");
-      setValidationMessage("正文已更新，真实校验结果生成后会自动替换当前 mock 报告。");
-      setYamlPreviewContent(
-        buildYamlPreview(mockSceneMap[mockOutlineScenes[0]?.sceneId] ?? null, project)
-      );
-      setYamlSourceMode("mock");
-      setYamlPreviewMessage("正文已更新，真实 YAML 导出就绪后会替换当前 mock 预览。");
-      setProgressStreamMessage("");
-      setProgressStreamPhase("");
-      setProgressStreamValue(null);
-      setProgressSourceMode("static");
-      setStoryEntities([]);
-      setStoryEvents([]);
       setSourceTextInput("");
-      setChapterSummaryMessage("");
-      setSourceSubmitMessage(
-        `小说已提交到当前项目，并切分为 ${nextChapters.length} 个章节，正在自动执行故事分析。`
-      );
-
-      setIsAnalyzing(true);
-      try {
-        await runStoryAnalysis(project.projectId);
-        setSourceSubmitMessage(
-          `小说已提交到当前项目，并切分为 ${nextChapters.length} 个章节，故事分析已完成。`
-        );
-      } catch (analysisError) {
-        const message = analysisError instanceof Error ? analysisError.message : "自动故事分析失败";
-        setAnalysisStatus("error");
-        setAnalysisMessage(message);
-        setSourceSubmitMessage(
-          `小说已提交到当前项目，并切分为 ${nextChapters.length} 个章节，但自动分析失败，可点击“执行分析”重试。`
-        );
-        await loadProjectDetail(project.projectId);
-        await refreshProjectList();
-      } finally {
-        setIsAnalyzing(false);
-      }
+      await completeSourceSubmission(nextChapters);
     } catch (error) {
       const message = error instanceof Error ? error.message : "无法提交小说正文";
+      setSourceSubmitMessage(message);
+    } finally {
+      setIsSubmittingSource(false);
+    }
+  }
+
+  async function handleUploadSourceFile() {
+    if (connectionMode !== "connected" || !sourceFileInput || isSubmittingSource || isAnalyzing) {
+      return;
+    }
+
+    setIsSubmittingSource(true);
+    setProjectActionMessage("");
+    setSourceSubmitMessage("");
+    setAnalysisResult(null);
+    setAnalysisMessage("");
+    setAnalysisStatus("");
+
+    try {
+      // 对齐开发契约：文件上传由后端读取内容后复用正文提交和章节切分逻辑。
+      const nextChapters = await uploadProjectSourceFile(project.projectId, sourceFileInput);
+      setSourceFileInput(null);
+      await completeSourceSubmission(nextChapters);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "无法上传小说文件";
       setSourceSubmitMessage(message);
     } finally {
       setIsSubmittingSource(false);
@@ -1347,14 +1378,41 @@ function App() {
             disabled={connectionMode !== "connected" || isProjectOperationBusy}
             placeholder="粘贴小说正文"
           />
-          <button
-            className="primary-button"
-            type="button"
-            disabled={connectionMode !== "connected" || isProjectOperationBusy || !sourceTextInput.trim()}
-            onClick={() => void handleSubmitSourceText()}
-          >
-            {isSubmittingSource ? (isAnalyzing ? "分析中..." : "提交中...") : "提交到当前项目"}
-          </button>
+          <div className="source-actions">
+            <button
+              className="primary-button"
+              type="button"
+              disabled={connectionMode !== "connected" || isProjectOperationBusy || !sourceTextInput.trim()}
+              onClick={() => void handleSubmitSourceText()}
+            >
+              {isSubmittingSource ? (isAnalyzing ? "分析中..." : "提交中...") : "提交到当前项目"}
+            </button>
+            <label className="file-picker">
+              <span>选择文件</span>
+              <input
+                key={sourceFileInput ? sourceFileInput.name : "empty-source-file"}
+                type="file"
+                accept=".txt,.md,text/plain,text/markdown"
+                disabled={connectionMode !== "connected" || isProjectOperationBusy}
+                onChange={(event) => {
+                  setSourceFileInput(event.currentTarget.files?.[0] ?? null);
+                }}
+              />
+            </label>
+            <button
+              className="ghost-button"
+              type="button"
+              disabled={connectionMode !== "connected" || isProjectOperationBusy || !sourceFileInput}
+              onClick={() => void handleUploadSourceFile()}
+            >
+              上传文件到当前项目
+            </button>
+          </div>
+          {sourceFileInput ? (
+            <div className="source-file-meta">
+              已选择：{sourceFileInput.name} / {Math.ceil(sourceFileInput.size / 1024)} KB
+            </div>
+          ) : null}
         </section>
 
         <section className="panel asset-panel">

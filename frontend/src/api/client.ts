@@ -81,6 +81,27 @@ async function requestText(path: string, options: RequestInit = {}) {
   throw new Error(parsedMessage || text || `Request failed for ${path}`);
 }
 
+async function requestFormJson<T>(path: string, formData: FormData) {
+  const response = await fetch(`${appConfig.apiBaseUrl}${path}`, {
+    method: "POST",
+    body: formData
+  });
+
+  let payload: ApiEnvelope<T>;
+
+  try {
+    payload = (await response.json()) as ApiEnvelope<T>;
+  } catch {
+    throw new Error(`Invalid JSON response for ${path}`);
+  }
+
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.message || `Request failed for ${path}`);
+  }
+
+  return payload.data;
+}
+
 function buildJsonPostOptions(body?: unknown): RequestInit {
   return {
     method: "POST",
@@ -245,6 +266,16 @@ export async function submitProjectSource(projectId: string, content: string) {
   const data = await requestJson<BackendChapterResponse[]>(
     `/projects/${projectId}/source`,
     buildJsonPostOptions({ content })
+  );
+  return data.map(adaptChapter);
+}
+
+export async function uploadProjectSourceFile(projectId: string, file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+  const data = await requestFormJson<BackendChapterResponse[]>(
+    `/projects/${projectId}/source/upload`,
+    formData
   );
   return data.map(adaptChapter);
 }
