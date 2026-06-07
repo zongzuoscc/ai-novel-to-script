@@ -802,6 +802,40 @@ textarea {
     linear-gradient(145deg, rgba(2, 5, 9, 0.98), rgba(12, 17, 24, 0.92));
 }
 
+.production-map-shell-empty {
+  display: grid;
+  place-items: center;
+  min-height: 500px;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(37, 228, 244, 0.08), transparent 32%),
+    linear-gradient(145deg, rgba(2, 5, 9, 0.98), rgba(12, 17, 24, 0.92));
+}
+
+.production-map-empty-state {
+  display: grid;
+  gap: 8px;
+  width: min(420px, calc(100% - 36px));
+  text-align: center;
+}
+
+.production-map-empty-state span {
+  color: var(--signal-cyan);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.production-map-empty-state strong {
+  color: #ffffff;
+  font-size: 20px;
+}
+
+.production-map-empty-state p {
+  margin: 0;
+  color: var(--studio-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
 .production-map-legend {
   position: absolute;
   top: 12px;

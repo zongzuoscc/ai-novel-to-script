@@ -40,9 +40,6 @@ import type {
 import { appConfig } from "../../config";
 import { useWorkbenchStore } from "../../store/workbenchStore";
 import projectData from "../../../../samples/mock-project.json";
-import outlineData from "../../../../samples/mock-outline.json";
-import scenesData from "../../../../samples/mock-scenes.json";
-import validationReport from "../../../../samples/mock-validation-report.json";
 import {
   analysisModeLabels,
   buildYamlPreview,
@@ -56,10 +53,11 @@ import {
   sceneUsesFallback
 } from "./domain";
 
-const mockOutlineScenes = outlineData as OutlineSceneViewModel[];
-const mockSceneDetails = scenesData as SceneDetailViewModel[];
-const mockSceneMap = Object.fromEntries(mockSceneDetails.map((scene) => [scene.sceneId, scene]));
-const mockValidationReport = validationReport as ValidationReportViewModel;
+const emptyValidationReport: ValidationReportViewModel = {
+  projectId: "",
+  status: "PASSED",
+  items: []
+};
 
 const mockProject = {
   projectId: projectData.projectId,
@@ -115,10 +113,8 @@ export function useWorkbench() {
   const [sourceFileInput, setSourceFileInput] = useState<File | null>(null);
   const [project, setProject] = useState<ProjectViewModel>(mockProject);
   const [chapters, setChapters] = useState<ChapterViewModel[]>([]);
-  const [outlineScenes, setOutlineScenes] = useState<OutlineSceneViewModel[]>(mockOutlineScenes);
-  const [sceneDetail, setSceneDetail] = useState<SceneDetailViewModel | null>(
-    mockSceneMap[mockOutlineScenes[0]?.sceneId] ?? null
-  );
+  const [outlineScenes, setOutlineScenes] = useState<OutlineSceneViewModel[]>([]);
+  const [sceneDetail, setSceneDetail] = useState<SceneDetailViewModel | null>(null);
   const [storyEntities, setStoryEntities] = useState<StoryEntityViewModel[]>([]);
   const [storyEvents, setStoryEvents] = useState<StoryEventViewModel[]>([]);
   const [connectionMode, setConnectionMode] = useState<WorkbenchConnectionMode>("mock-only");
@@ -127,22 +123,22 @@ export function useWorkbench() {
   const [sourceSubmitMessage, setSourceSubmitMessage] = useState("");
   const [chapterSummaryMessage, setChapterSummaryMessage] = useState("");
   const [outlineMessage, setOutlineMessage] = useState("");
-  const [outlineSourceMode, setOutlineSourceMode] = useState<"real" | "mock">("mock");
+  const [outlineSourceMode, setOutlineSourceMode] = useState<"real" | "empty">("empty");
   const [sceneDetailMessage, setSceneDetailMessage] = useState("");
   const [sceneDetailSourceMode, setSceneDetailSourceMode] = useState<"real" | "mock" | "empty">(
-    "mock"
+    "empty"
   );
   const [storyAssetsMessage, setStoryAssetsMessage] = useState("");
   const [storyEventsMessage, setStoryEventsMessage] = useState("");
   const [validationReportData, setValidationReportData] =
-    useState<ValidationReportViewModel>(mockValidationReport);
+    useState<ValidationReportViewModel>(emptyValidationReport);
   const [validationMessage, setValidationMessage] = useState("");
-  const [validationSourceMode, setValidationSourceMode] = useState<"real" | "mock">("mock");
+  const [validationSourceMode, setValidationSourceMode] = useState<"real" | "empty">("empty");
   const [yamlPreviewContent, setYamlPreviewContent] = useState(
-    buildYamlPreview(mockSceneMap[mockOutlineScenes[0]?.sceneId] ?? null, mockProject)
+    buildYamlPreview(null, mockProject)
   );
   const [yamlPreviewMessage, setYamlPreviewMessage] = useState("");
-  const [yamlSourceMode, setYamlSourceMode] = useState<"real" | "mock">("mock");
+  const [yamlSourceMode, setYamlSourceMode] = useState<"real" | "empty">("empty");
   const [progressStreamMessage, setProgressStreamMessage] = useState("");
   const [progressStreamPhase, setProgressStreamPhase] = useState("");
   const [progressStreamValue, setProgressStreamValue] = useState<number | null>(null);
@@ -434,14 +430,14 @@ export function useWorkbench() {
 
   async function completeSourceSubmission(nextChapters: ChapterViewModel[]) {
     setChapters(nextChapters);
-    setOutlineScenes(mockOutlineScenes);
-    setOutlineSourceMode("mock");
-    setSceneDetail(mockSceneMap[mockOutlineScenes[0]?.sceneId] ?? null);
-    setSceneDetailSourceMode("mock");
-    setValidationReportData(mockValidationReport);
-    setValidationSourceMode("mock");
-    setYamlPreviewContent(buildYamlPreview(mockSceneMap[mockOutlineScenes[0]?.sceneId] ?? null, project));
-    setYamlSourceMode("mock");
+    setOutlineScenes([]);
+    setOutlineSourceMode("empty");
+    setSceneDetail(null);
+    setSceneDetailSourceMode("empty");
+    setValidationReportData(emptyValidationReport);
+    setValidationSourceMode("empty");
+    setYamlPreviewContent(buildYamlPreview(null, project));
+    setYamlSourceMode("empty");
     setProgressStreamMessage("");
     setProgressStreamPhase("");
     setProgressStreamValue(null);
@@ -757,8 +753,8 @@ export function useWorkbench() {
       await loadProjectDetail(project.projectId);
       await refreshProjectList();
     } catch (error) {
-      setValidationReportData(mockValidationReport);
-      setValidationSourceMode("mock");
+      setValidationReportData(emptyValidationReport);
+      setValidationSourceMode("empty");
       setValidationMessage(error instanceof Error ? error.message : "无法执行项目校验");
     } finally {
       setIsValidatingProject(false);
@@ -781,7 +777,7 @@ export function useWorkbench() {
       await refreshProjectList();
     } catch (error) {
       setYamlPreviewContent(buildYamlPreview(sceneDetail, project));
-      setYamlSourceMode("mock");
+      setYamlSourceMode("empty");
       setYamlPreviewMessage(error instanceof Error ? error.message : "无法导出项目 YAML");
     } finally {
       setIsExportingYaml(false);
@@ -792,12 +788,6 @@ export function useWorkbench() {
     void navigator.clipboard?.writeText(yamlPreviewContent);
     setYamlPreviewMessage("YAML 已复制到剪贴板。");
   }
-
-  useEffect(() => {
-    if (!selectedSceneId && mockOutlineScenes[0]?.sceneId) {
-      setSelectedSceneId(mockOutlineScenes[0].sceneId);
-    }
-  }, [selectedSceneId, setSelectedSceneId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -817,8 +807,14 @@ export function useWorkbench() {
         if (!targetProjectId) {
           setProject(mockProject);
           setChapters([]);
+          setOutlineScenes([]);
+          setSceneDetail(null);
           setStoryEntities([]);
           setStoryEvents([]);
+          setValidationReportData(emptyValidationReport);
+          setValidationSourceMode("empty");
+          setYamlPreviewContent(buildYamlPreview(null, mockProject));
+          setYamlSourceMode("empty");
           setConnectionMode("mock-only");
           setErrorMessage("暂无真实项目，请先新建项目并提交小说。");
           return;
@@ -835,14 +831,14 @@ export function useWorkbench() {
         setErrorMessage(error instanceof Error ? error.message : "无法连接项目接口");
         setProject(mockProject);
         setChapters([]);
+        setOutlineScenes([]);
+        setSceneDetail(null);
         setStoryEntities([]);
         setStoryEvents([]);
-        setValidationReportData(mockValidationReport);
-        setValidationSourceMode("mock");
-        setYamlPreviewContent(
-          buildYamlPreview(mockSceneMap[mockOutlineScenes[0]?.sceneId] ?? null, mockProject)
-        );
-        setYamlSourceMode("mock");
+        setValidationReportData(emptyValidationReport);
+        setValidationSourceMode("empty");
+        setYamlPreviewContent(buildYamlPreview(null, mockProject));
+        setYamlSourceMode("empty");
         setProgressStreamMessage("");
         setProgressStreamPhase("");
         setProgressStreamValue(null);
@@ -920,8 +916,8 @@ export function useWorkbench() {
 
   useEffect(() => {
     if (connectionMode !== "connected" || !canLoadGeneratedScenes) {
-      setOutlineScenes(mockOutlineScenes);
-      setOutlineSourceMode("mock");
+      setOutlineScenes([]);
+      setOutlineSourceMode("empty");
       setOutlineMessage(connectionMode === "connected" ? "执行故事分析后将加载真实场景大纲。" : "");
       return;
     }
@@ -934,9 +930,9 @@ export function useWorkbench() {
         const scenes = await getProjectOutline(project.projectId);
         if (cancelled) return;
         if (scenes.length === 0) {
-          setOutlineScenes(mockOutlineScenes);
-          setOutlineSourceMode("mock");
-          setOutlineMessage("真实大纲暂为空，继续使用 mock 大纲。");
+          setOutlineScenes([]);
+          setOutlineSourceMode("empty");
+          setOutlineMessage("真实大纲暂为空，请先提交文本并等待场景生成完成。");
           return;
         }
         setOutlineScenes(scenes);
@@ -944,8 +940,8 @@ export function useWorkbench() {
         setOutlineMessage("已读取真实场景大纲。");
       } catch (error) {
         if (!cancelled) {
-          setOutlineScenes(mockOutlineScenes);
-          setOutlineSourceMode("mock");
+          setOutlineScenes([]);
+          setOutlineSourceMode("empty");
           setOutlineMessage(error instanceof Error ? error.message : "无法加载真实场景大纲。");
         }
       }
@@ -969,7 +965,6 @@ export function useWorkbench() {
   }, [outlineScenes, selectedSceneId, setSelectedSceneId]);
 
   useEffect(() => {
-    const mockScene = mockSceneMap[selectedSceneId] ?? null;
     setSceneStreamContent("");
     setSceneStreamMessage("");
 
@@ -981,8 +976,8 @@ export function useWorkbench() {
     }
 
     if (connectionMode !== "connected" || !canLoadGeneratedScenes) {
-      setSceneDetail(mockScene);
-      setSceneDetailSourceMode(mockScene ? "mock" : "empty");
+      setSceneDetail(null);
+      setSceneDetailSourceMode("empty");
       setSceneDetailMessage(connectionMode === "connected" ? "执行故事分析后将加载真实 Scene。" : "");
       return;
     }
@@ -1012,15 +1007,9 @@ export function useWorkbench() {
           startScenePreview(selectedSceneId);
           return;
         }
-        if (mockScene) {
-          setSceneDetail(mockScene);
-          setSceneDetailSourceMode("mock");
-          setSceneDetailMessage(error instanceof Error ? error.message : "当前继续使用 mock Scene。");
-          return;
-        }
         setSceneDetail(null);
         setSceneDetailSourceMode("empty");
-        setSceneDetailMessage("真实 Scene 尚未就绪，且当前没有 mock 回退。");
+        setSceneDetailMessage("真实 Scene 尚未就绪。");
       }
     }
 
@@ -1108,7 +1097,6 @@ export function useWorkbench() {
     const selectedSceneIndex = outlineScenes.findIndex((scene) => scene.sceneId === selectedSceneId);
     const projectCompleted = project.status === "COMPLETED";
     const selectedSceneUsesFallback = sceneUsesFallback(sceneDetail);
-    const mockSelectedWarnings = mockValidationReport.items.filter((item) => item.sceneId === selectedSceneId);
     const selectedWarnings: ValidationItemViewModel[] =
       validationSourceMode === "real"
         ? validationReportData.items.filter((item) => item.sceneId === selectedSceneId)
@@ -1119,11 +1107,11 @@ export function useWorkbench() {
               field: `warning_${index + 1}`,
               message
             }))
-          : mockSelectedWarnings;
+          : [];
     const currentValidationStatus =
       validationSourceMode === "real"
         ? validationReportData.status
-        : sceneDetail?.validationStatus ?? mockValidationReport.status;
+        : sceneDetail?.validationStatus ?? "PENDING";
 
     return {
       activePhaseIndex: Math.max(phaseLabels.indexOf(activePhaseLabel), 0),
@@ -1154,7 +1142,7 @@ export function useWorkbench() {
       totalValidationCount:
         validationSourceMode === "real"
           ? validationReportData.items.length
-          : sceneDetail?.warnings.length ?? mockValidationReport.items.length,
+          : sceneDetail?.warnings.length ?? 0,
       workflowNoticeRetryLabel:
         workflowNotice?.retryAction === "outline"
           ? "重试生成场景"

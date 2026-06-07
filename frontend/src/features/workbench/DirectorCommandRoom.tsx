@@ -273,7 +273,7 @@ export function DirectorCommandRoom() {
             meta={
               <div className="panel-meta-row">
                 <Badge tone={sourceTone(sources.outlineSourceMode)}>
-                  {sources.outlineSourceMode === "real" ? "真实大纲" : "Mock 大纲"}
+                  {sources.outlineSourceMode === "real" ? "真实大纲" : "等待大纲"}
                 </Badge>
                 <Badge tone="cyan">{derived.sceneSelectionLabel}</Badge>
               </div>
