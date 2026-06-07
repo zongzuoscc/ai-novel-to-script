@@ -60,6 +60,10 @@ export type BackendStoryAnalysisResponse = {
   status: string;
   entityCount: number;
   eventCount: number;
+  generationMode: string;
+  aiSuccess: boolean;
+  fallbackUsed: boolean;
+  message: string;
   entities: BackendStoryEntityResponse[];
   events: BackendStoryEventResponse[];
 };
@@ -147,6 +151,10 @@ export type StoryAnalysisViewModel = {
   status: string;
   entityCount: number;
   eventCount: number;
+  generationMode: string;
+  aiSuccess: boolean;
+  fallbackUsed: boolean;
+  message: string;
   entities: StoryEntityViewModel[];
   events: StoryEventViewModel[];
 };

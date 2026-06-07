@@ -148,6 +148,10 @@ Rules:
   "status": "ENTITY_READY",
   "entityCount": 2,
   "eventCount": 3,
+  "generationMode": "AI",
+  "aiSuccess": true,
+  "fallbackUsed": false,
+  "message": "故事资产由 AI 抽取生成",
   "entities": [],
   "events": []
 }
@@ -156,6 +160,10 @@ Rules:
 Rules:
 
 - `POST /api/projects/{projectId}/analyze` 返回该结构
+- `generationMode` 当前取值：`AI` `FALLBACK`
+- `aiSuccess=false` 表示 AI 调用失败或返回异常
+- `fallbackUsed=true` 表示本次结果由规则兜底生成
+- `message` 用于前端展示本次分析来源和失败原因摘要
 - `entities` 使用 `StoryEntity` 数组结构
 - `events` 使用 `StoryEvent` 数组结构
 - 空数组返回 `[]`，不返回 `null`

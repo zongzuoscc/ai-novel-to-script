@@ -149,6 +149,10 @@ export function adaptStoryAnalysis(
     status: result.status,
     entityCount: result.entityCount,
     eventCount: result.eventCount,
+    generationMode: result.generationMode,
+    aiSuccess: result.aiSuccess,
+    fallbackUsed: result.fallbackUsed,
+    message: result.message,
     entities: result.entities.map(adaptStoryEntity),
     events: result.events.map(adaptStoryEvent)
   };
