@@ -78,6 +78,194 @@ textarea:focus-visible {
   min-height: 100vh;
 }
 
+.product-home {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  min-height: 92svh;
+  padding: 22px clamp(18px, 4vw, 56px) 18px;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.product-home-bg {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background:
+    linear-gradient(90deg, rgba(5, 7, 11, 0.95) 0%, rgba(5, 7, 11, 0.78) 34%, rgba(5, 7, 11, 0.2) 64%, rgba(5, 7, 11, 0.7) 100%),
+    linear-gradient(180deg, rgba(5, 7, 11, 0.1), rgba(5, 7, 11, 0.88)),
+    url("/assets/product-hero-command-room.png") center / cover no-repeat;
+  filter: saturate(1.02) contrast(1.05);
+}
+
+.product-home::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 34%;
+  z-index: -1;
+  background: linear-gradient(180deg, transparent, var(--studio-bg));
+}
+
+.product-home::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: -1;
+  width: min(760px, 72vw);
+  background: linear-gradient(90deg, rgba(5, 7, 11, 0.94), rgba(5, 7, 11, 0.62), transparent);
+}
+
+.product-home-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  position: relative;
+  z-index: 2;
+}
+
+.home-brand,
+.home-nav-links,
+.home-hero-actions,
+.home-proof-row,
+.home-proof-row div,
+.home-scroll-cue {
+  display: flex;
+  align-items: center;
+}
+
+.home-brand {
+  gap: 9px;
+  color: #ffffff;
+  text-decoration: none;
+  font-weight: 800;
+}
+
+.home-brand svg {
+  color: var(--signal-cyan);
+}
+
+.home-nav-links {
+  gap: 18px;
+}
+
+.home-nav-links a,
+.home-secondary-action,
+.home-scroll-cue {
+  color: rgba(243, 248, 255, 0.78);
+  text-decoration: none;
+}
+
+.home-nav-links a {
+  font-size: 14px;
+}
+
+.home-hero-copy {
+  align-self: center;
+  position: relative;
+  z-index: 2;
+  width: min(760px, 100%);
+  padding: 8svh 0 6svh;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.74);
+}
+
+.home-signal {
+  display: inline-flex;
+  margin-bottom: 18px;
+  color: var(--signal-cyan);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.home-hero-copy h1 {
+  margin: 0;
+  color: #ffffff;
+  font-size: clamp(58px, 9vw, 116px);
+  line-height: 0.92;
+  letter-spacing: 0;
+  text-wrap: balance;
+}
+
+.home-hero-copy p {
+  max-width: 650px;
+  margin: 24px 0 0;
+  color: rgba(243, 248, 255, 0.88);
+  font-size: clamp(20px, 2.4vw, 32px);
+  line-height: 1.18;
+  text-wrap: pretty;
+}
+
+.home-hero-actions {
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 30px;
+}
+
+.home-primary-action,
+.home-secondary-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 18px;
+  border-radius: 999px;
+  text-decoration: none;
+  font-weight: 800;
+}
+
+.home-primary-action {
+  gap: 8px;
+  background: #ffffff;
+  color: #05070b;
+}
+
+.home-secondary-action {
+  border: 1px solid rgba(243, 248, 255, 0.28);
+  background: rgba(5, 7, 11, 0.34);
+}
+
+.home-proof-row {
+  align-self: end;
+  position: relative;
+  z-index: 2;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.home-proof-row div {
+  gap: 9px;
+  min-height: 40px;
+  padding: 0 13px;
+  border: 1px solid rgba(243, 248, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(7, 10, 15, 0.48);
+  color: rgba(243, 248, 255, 0.84);
+  font-size: 13px;
+}
+
+.home-proof-row svg {
+  color: var(--signal-cyan);
+}
+
+.home-scroll-cue {
+  justify-self: center;
+  position: relative;
+  z-index: 2;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 13px;
+}
+
+.workbench-section {
+  scroll-margin-top: 0;
+}
+
 .director-room {
   position: relative;
   min-height: 100vh;
@@ -86,9 +274,10 @@ textarea:focus-visible {
 }
 
 .cinematic-backdrop {
-  position: fixed;
+  position: absolute;
   inset: 0;
-  z-index: -2;
+  z-index: -1;
+  pointer-events: none;
   background:
     linear-gradient(90deg, rgba(5, 7, 11, 0.94), rgba(5, 7, 11, 0.54), rgba(5, 7, 11, 0.96)),
     url("/assets/director-command-room.png") center / cover no-repeat;
@@ -810,6 +999,38 @@ textarea {
 }
 
 @media (max-width: 920px) {
+  .product-home {
+    min-height: 94svh;
+    padding: 18px;
+  }
+
+  .product-home-bg {
+    background:
+      linear-gradient(90deg, rgba(5, 7, 11, 0.96), rgba(5, 7, 11, 0.68)),
+      linear-gradient(180deg, rgba(5, 7, 11, 0.22), rgba(5, 7, 11, 0.92)),
+      url("/assets/product-hero-command-room.png") center / cover no-repeat;
+  }
+
+  .product-home-nav {
+    align-items: flex-start;
+  }
+
+  .home-nav-links {
+    gap: 12px;
+  }
+
+  .home-hero-copy {
+    padding: 8svh 0 4svh;
+  }
+
+  .home-hero-copy h1 {
+    font-size: clamp(48px, 14vw, 76px);
+  }
+
+  .home-hero-copy p {
+    font-size: 22px;
+  }
+
   .director-room {
     padding: 12px;
   }
@@ -849,6 +1070,41 @@ textarea {
 }
 
 @media (max-width: 560px) {
+  .product-home {
+    min-height: 95svh;
+  }
+
+  .product-home-nav {
+    gap: 10px;
+  }
+
+  .home-nav-links {
+    display: none;
+  }
+
+  .home-hero-copy h1 {
+    font-size: 52px;
+  }
+
+  .home-hero-copy p {
+    font-size: 20px;
+  }
+
+  .home-primary-action,
+  .home-secondary-action {
+    width: 100%;
+  }
+
+  .home-proof-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .home-proof-row div {
+    justify-content: center;
+  }
+
   .command-actions,
   .map-control-rail,
   .source-action-grid,

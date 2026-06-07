@@ -383,7 +383,7 @@ export function DirectorCommandRoom() {
         </aside>
       </section>
 
-      <section className="delivery-rail">
+      <section id="delivery" className="delivery-rail">
         <div className="phase-track">
           {phaseLabels.map((label, index) => (
             <span

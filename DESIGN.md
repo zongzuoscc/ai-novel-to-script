@@ -8,6 +8,10 @@ Product UI for a film-production workflow. The surface serves operators who need
 
 The interface is a dark graphite production room, with one cinematic background asset, a central spatial story map, and compact task consoles around it. The first screen must read as a professional director command room, not as a generic AI dashboard.
 
+## Product Home
+
+The product home is a full-bleed cinematic entry screen. It uses a generated production-suite background, concise product copy, and direct navigation into the workbench. The H1 is the product name, while supporting copy explains the specific promise: converting long-form novel text into checkable, rewritable, exportable Scene-level screenplay assets. The home section is shorter than the viewport so the command room is always hinted below.
+
 ## Tokens
 
 - `--studio-bg`: app background, near-black graphite.
