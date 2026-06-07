@@ -203,21 +203,77 @@ public class AiChatClient {
             if (content == null || content.isBlank()) {
                 throw new IllegalStateException("AI 响应中没有 content 字段");
             }
-            return stripJsonFence(content);
+            return normalizeJsonContent(content);
         } catch (Exception ex) {
             throw new IllegalStateException("解析 AI 响应失败", ex);
         }
     }
 
-    private String stripJsonFence(String content) {
+    String normalizeJsonContent(String content) {
         String trimmed = content.trim();
         if (trimmed.startsWith("```")) {
             int firstLineBreak = trimmed.indexOf('\n');
             int lastFence = trimmed.lastIndexOf("```");
             if (firstLineBreak >= 0 && lastFence > firstLineBreak) {
-                return trimmed.substring(firstLineBreak + 1, lastFence).trim();
+                trimmed = trimmed.substring(firstLineBreak + 1, lastFence).trim();
             }
         }
+        if (isValidJsonObject(trimmed)) {
+            return trimmed;
+        }
+        String extracted = extractFirstJsonObject(trimmed);
+        if (isValidJsonObject(extracted)) {
+            return extracted;
+        }
         return trimmed;
+    }
+
+    private boolean isValidJsonObject(String content) {
+        if (content == null || content.isBlank()) {
+            return false;
+        }
+        try {
+            return objectMapper.readTree(content).isObject();
+        } catch (Exception ex) {
+            return false;
+        }
+    }
+
+    private String extractFirstJsonObject(String content) {
+        int start = content.indexOf('{');
+        if (start < 0) {
+            return content;
+        }
+
+        boolean inString = false;
+        boolean escaped = false;
+        int depth = 0;
+        for (int i = start; i < content.length(); i++) {
+            char current = content.charAt(i);
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            if (current == '\\' && inString) {
+                escaped = true;
+                continue;
+            }
+            if (current == '"') {
+                inString = !inString;
+                continue;
+            }
+            if (inString) {
+                continue;
+            }
+            if (current == '{') {
+                depth++;
+            } else if (current == '}') {
+                depth--;
+                if (depth == 0) {
+                    return content.substring(start, i + 1).trim();
+                }
+            }
+        }
+        return content;
     }
 }
