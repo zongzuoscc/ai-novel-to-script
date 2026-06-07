@@ -20,7 +20,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
@@ -52,6 +55,8 @@ public class SceneGenerationService {
     private final ObjectMapper objectMapper;
     private final ProjectOperationLock projectOperationLock;
     private final ProgressEventPublisher progressEventPublisher;
+    private final TransactionTemplate readOnlyTransactionTemplate;
+    private final TransactionTemplate writeTransactionTemplate;
     private final int maxOutlineEventsPerBatch;
 
     public SceneGenerationService(
@@ -64,6 +69,7 @@ public class SceneGenerationService {
             ObjectMapper objectMapper,
             ProjectOperationLock projectOperationLock,
             ProgressEventPublisher progressEventPublisher,
+            PlatformTransactionManager transactionManager,
             @Value("${OUTLINE_EVENTS_PER_BATCH:6}") int maxOutlineEventsPerBatch
     ) {
         this.projectService = projectService;
@@ -75,6 +81,11 @@ public class SceneGenerationService {
         this.objectMapper = objectMapper;
         this.projectOperationLock = projectOperationLock;
         this.progressEventPublisher = progressEventPublisher;
+        this.readOnlyTransactionTemplate = new TransactionTemplate(transactionManager);
+        this.readOnlyTransactionTemplate.setReadOnly(true);
+        this.readOnlyTransactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        this.writeTransactionTemplate = new TransactionTemplate(transactionManager);
+        this.writeTransactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         this.maxOutlineEventsPerBatch = Math.max(1, maxOutlineEventsPerBatch);
     }
 
@@ -310,6 +321,42 @@ public class SceneGenerationService {
         long startedAt = System.currentTimeMillis();
         log.info("开始生成 Scene: projectId={}, sceneId={}, regenerating={}", projectId, sceneId, regenerating);
         progressEventPublisher.jobStarted(projectId, "scene_generation", "scene_generating", 70, "开始生成 Scene: " + sceneId);
+        SceneGenerationContext context = readOnlyTransactionTemplate.execute(status -> buildSceneGenerationContext(projectId, sceneId));
+        if (context == null) {
+            throw new IllegalStateException("无法读取 Scene 生成上下文: " + sceneId);
+        }
+
+        SceneScript sceneScript;
+        try {
+            sceneScript = parseSceneScript(projectId, context.outlineScene(), aiChatClient.completeJson(
+                    "你是专业剧本写作助手，负责根据场景大纲生成 Scene 级动作和对白。只返回合法 JSON。",
+                    buildScenePrompt(context.project(), context.outlineScene(), context.entities(), context.events(), regenerating)
+            ));
+        } catch (Exception ex) {
+            log.warn("AI Scene 生成失败，切换规则兜底: projectId={}, sceneId={}, reason={}", projectId, sceneId, rootCauseMessage(ex));
+            progressEventPublisher.phaseChanged(projectId, "scene_generating", 72, "AI Scene 生成失败，已切换规则兜底: " + sceneId);
+            sceneScript = buildFallbackSceneScript(projectId, context.outlineScene());
+        }
+
+        SceneScript generatedSceneScript = sceneScript;
+        SceneScript savedSceneScript = writeTransactionTemplate.execute(
+                status -> saveGeneratedSceneScript(projectId, sceneId, generatedSceneScript)
+        );
+        if (savedSceneScript == null) {
+            throw new IllegalStateException("无法保存 Scene: " + sceneId);
+        }
+        progressEventPublisher.sceneDone(projectId, sceneId, sceneScript.getValidationStatus());
+        log.info(
+                "Scene 生成完成: projectId={}, sceneId={}, validationStatus={}, elapsedMs={}",
+                projectId,
+                sceneId,
+                sceneScript.getValidationStatus(),
+                System.currentTimeMillis() - startedAt
+        );
+        return savedSceneScript;
+    }
+
+    private SceneGenerationContext buildSceneGenerationContext(String projectId, String sceneId) {
         OutlineScene outlineScene = outlineSceneMapper.findByProjectIdAndSceneId(projectId, sceneId)
                 .orElseGet(() -> {
                     List<OutlineScene> scenes = generateOutline(projectId);
@@ -322,28 +369,13 @@ public class SceneGenerationService {
         Project project = projectService.getProjectEntity(projectId);
         List<StoryEntity> entities = storyEntityMapper.findByProjectId(projectId);
         List<StoryEvent> events = storyEventMapper.findByProjectIdOrderByEventOrderAsc(projectId);
-        SceneScript sceneScript;
-        try {
-            sceneScript = parseSceneScript(projectId, outlineScene, aiChatClient.completeJson(
-                    "你是专业剧本写作助手，负责根据场景大纲生成 Scene 级动作和对白。只返回合法 JSON。",
-                    buildScenePrompt(project, outlineScene, entities, events, regenerating)
-            ));
-        } catch (Exception ex) {
-            log.warn("AI Scene 生成失败，切换规则兜底: projectId={}, sceneId={}, reason={}", projectId, sceneId, rootCauseMessage(ex));
-            progressEventPublisher.phaseChanged(projectId, "scene_generating", 72, "AI Scene 生成失败，已切换规则兜底: " + sceneId);
-            sceneScript = buildFallbackSceneScript(projectId, outlineScene);
-        }
+        log.debug("Scene 生成上下文读取完成: projectId={}, sceneId={}", projectId, sceneId);
+        return new SceneGenerationContext(project, outlineScene, entities, events);
+    }
 
+    private SceneScript saveGeneratedSceneScript(String projectId, String sceneId, SceneScript sceneScript) {
         sceneScriptMapper.insert(sceneScript);
         projectService.updateStatus(projectId, ProjectStatus.SCENE_GENERATING);
-        progressEventPublisher.sceneDone(projectId, sceneId, sceneScript.getValidationStatus());
-        log.info(
-                "Scene 生成完成: projectId={}, sceneId={}, validationStatus={}, elapsedMs={}",
-                projectId,
-                sceneId,
-                sceneScript.getValidationStatus(),
-                System.currentTimeMillis() - startedAt
-        );
         return sceneScriptMapper.findByProjectIdAndSceneId(projectId, sceneId).orElse(sceneScript);
     }
 
@@ -930,6 +962,14 @@ public class SceneGenerationService {
     }
 
     private record SceneStreamContext(
+            Project project,
+            OutlineScene outlineScene,
+            List<StoryEntity> entities,
+            List<StoryEvent> events
+    ) {
+    }
+
+    private record SceneGenerationContext(
             Project project,
             OutlineScene outlineScene,
             List<StoryEntity> entities,
