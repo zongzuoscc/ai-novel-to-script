@@ -429,6 +429,7 @@ POST /api/projects/{projectId}/analyze/incremental
 - 旧实体、旧事件、旧场景大纲和旧 Scene 剧本不会被删除。
 - 新实体会按实体类型、名称和别名尝试合并到已有实体；无法匹配时才分配新的 `C###` 或 `L###`。
 - 新事件会从当前最大 `eventOrder` 和最大 `E###` 后继续追加。
+- 写入新事件后，后端会按章节真实顺序重排所有事件的 `eventOrder`，保留原有 `eventId`。
 - 如果没有发现待分析的新章节，会返回现有实体和事件，并在 `message` 中说明。
 
 成功响应结构与“分析故事中间资产”一致。`generationMode` 可能为：
@@ -549,6 +550,7 @@ POST /api/projects/{projectId}/outline/incremental
 - 旧场景大纲和旧 Scene 剧本不会被删除或重写。
 - 后端通过已有场景大纲的 `sourceRefs` 判断哪些事件已经生成过场景。
 - 新场景会从当前最大 `seqNo` 和最大 `S###` 后继续编号。
+- 写入新场景后，后端会按 `sourceRefs` 对应章节顺序重排所有场景的 `seqNo`，保留原有 `sceneId` 和已生成的 Scene 剧本。
 - 如果没有发现待生成场景的新事件，会返回当前完整场景大纲列表。
 
 成功响应结构与“查询场景大纲”一致，返回追加后的完整场景大纲列表。
