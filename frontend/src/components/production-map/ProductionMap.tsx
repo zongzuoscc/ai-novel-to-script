@@ -1,7 +1,7 @@
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Html, Line, OrbitControls, Sparkles } from "@react-three/drei";
 import { useMemo, useRef } from "react";
-import { Color, Group, Vector3 } from "three";
+import { Color, Group, MOUSE, Vector3 } from "three";
 import type {
   ChapterViewModel,
   OutlineSceneViewModel,
@@ -91,8 +91,9 @@ function buildStorylineGraph({
   events,
   scenes
 }: Pick<ProductionMapProps, "chapters" | "entities" | "events" | "scenes">): StorylineGraph {
-  const orderedScenes = scenes.slice(0, 12).sort((left, right) => left.seqNo - right.seqNo);
+  const orderedScenes = scenes.slice().sort((left, right) => left.seqNo - right.seqNo);
   const sceneCount = Math.max(orderedScenes.length, 1);
+  const sceneSpacing = Math.max(0.42, Math.min(0.98, 14 / Math.max(sceneCount - 1, 1)));
   const sceneChapterNoById = new Map(
     orderedScenes.map((scene) => [scene.sceneId, extractChapterNo(scene.sourceRefs)])
   );
@@ -101,7 +102,7 @@ function buildStorylineGraph({
   const links: MapLink[] = [];
 
   const sceneNodes = orderedScenes.map((scene, index) => {
-    const x = (index - (sceneCount - 1) / 2) * 0.98;
+    const x = (index - (sceneCount - 1) / 2) * sceneSpacing;
     const node = {
       id: scene.sceneId,
       label: String(scene.seqNo).padStart(2, "0"),
@@ -395,7 +396,19 @@ export function ProductionMap(props: ProductionMapProps) {
     () => resolveSelectedContext(buildStorylineGraph(props), props.selectedSceneId),
     [props.chapters, props.entities, props.events, props.scenes, props.selectedSceneId]
   );
-  const sceneNodes = props.scenes.slice(0, 12).sort((left, right) => left.seqNo - right.seqNo);
+  const sceneNodes = props.scenes.slice().sort((left, right) => left.seqNo - right.seqNo);
+
+  if (sceneNodes.length === 0) {
+    return (
+      <div className="production-map-shell production-map-shell-empty">
+        <div className="production-map-empty-state">
+          <span>Story Production Map</span>
+          <strong>等待真实场景生成</strong>
+          <p>提交小说正文并完成分析后，章节、事件、角色和 Scene 会在这里形成故事线。</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="production-map-shell">
@@ -421,10 +434,18 @@ export function ProductionMap(props: ProductionMapProps) {
             enablePan
             enableRotate
             enableZoom
+            makeDefault
             maxDistance={11}
             minDistance={3.4}
+            mouseButtons={{
+              LEFT: MOUSE.PAN,
+              MIDDLE: MOUSE.DOLLY,
+              RIGHT: MOUSE.ROTATE
+            }}
             panSpeed={0.72}
             rotateSpeed={0.62}
+            screenSpacePanning
+            target={[0, 0, 0]}
             zoomSpeed={0.58}
           />
         </Canvas>
