@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import {
   analyzeStoryAssets,
+  appendProjectSource,
+  appendProjectSourceFile,
   createProject,
   exportProjectYaml,
   getProject,
@@ -418,6 +420,15 @@ function App() {
     }
   }
 
+  async function completeSourceAppend(nextChapters: ChapterViewModel[], appendedLabel: string) {
+    setChapters(nextChapters);
+    setSourceSubmitMessage(
+      `${appendedLabel}已追加到当前项目，当前共 ${nextChapters.length} 章。旧场景和剧本已保留；新增章节的增量分析与增量场景生成将在后续功能中接入。`
+    );
+    await loadProjectDetail(project.projectId);
+    await refreshProjectList();
+  }
+
   async function handleSubmitSourceText() {
     const content = sourceTextInput.trim();
     if (connectionMode !== "connected" || !content || isSubmittingSource || isAnalyzing) {
@@ -444,6 +455,29 @@ function App() {
     }
   }
 
+  async function handleAppendSourceText() {
+    const content = sourceTextInput.trim();
+    if (connectionMode !== "connected" || !content || isSubmittingSource || isAnalyzing) {
+      return;
+    }
+
+    setIsSubmittingSource(true);
+    setProjectActionMessage("");
+    setSourceSubmitMessage("");
+
+    try {
+      // 追加章节只新增 source_chapters，不覆盖旧章节、旧资产和旧 Scene。
+      const nextChapters = await appendProjectSource(project.projectId, content);
+      setSourceTextInput("");
+      await completeSourceAppend(nextChapters, "文本章节");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "无法追加小说章节";
+      setSourceSubmitMessage(message);
+    } finally {
+      setIsSubmittingSource(false);
+    }
+  }
+
   async function handleUploadSourceFile() {
     if (connectionMode !== "connected" || !sourceFileInput || isSubmittingSource || isAnalyzing) {
       return;
@@ -463,6 +497,28 @@ function App() {
       await completeSourceSubmission(nextChapters);
     } catch (error) {
       const message = error instanceof Error ? error.message : "无法上传小说文件";
+      setSourceSubmitMessage(message);
+    } finally {
+      setIsSubmittingSource(false);
+    }
+  }
+
+  async function handleAppendSourceFile() {
+    if (connectionMode !== "connected" || !sourceFileInput || isSubmittingSource || isAnalyzing) {
+      return;
+    }
+
+    setIsSubmittingSource(true);
+    setProjectActionMessage("");
+    setSourceSubmitMessage("");
+
+    try {
+      // 追加文件只新增章节，避免误删用户已经生成或调整过的旧场景。
+      const nextChapters = await appendProjectSourceFile(project.projectId, sourceFileInput);
+      setSourceFileInput(null);
+      await completeSourceAppend(nextChapters, "文件章节");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "无法追加小说文件";
       setSourceSubmitMessage(message);
     } finally {
       setIsSubmittingSource(false);
@@ -1385,7 +1441,15 @@ function App() {
               disabled={connectionMode !== "connected" || isProjectOperationBusy || !sourceTextInput.trim()}
               onClick={() => void handleSubmitSourceText()}
             >
-              {isSubmittingSource ? (isAnalyzing ? "分析中..." : "提交中...") : "提交到当前项目"}
+              {isSubmittingSource ? (isAnalyzing ? "分析中..." : "提交中...") : "替换当前项目正文"}
+            </button>
+            <button
+              className="ghost-button"
+              type="button"
+              disabled={connectionMode !== "connected" || isProjectOperationBusy || !sourceTextInput.trim()}
+              onClick={() => void handleAppendSourceText()}
+            >
+              追加文本章节
             </button>
             <label className="file-picker">
               <span>选择文件</span>
@@ -1405,7 +1469,15 @@ function App() {
               disabled={connectionMode !== "connected" || isProjectOperationBusy || !sourceFileInput}
               onClick={() => void handleUploadSourceFile()}
             >
-              上传文件到当前项目
+              上传文件并替换
+            </button>
+            <button
+              className="ghost-button"
+              type="button"
+              disabled={connectionMode !== "connected" || isProjectOperationBusy || !sourceFileInput}
+              onClick={() => void handleAppendSourceFile()}
+            >
+              追加文件章节
             </button>
           </div>
           {sourceFileInput ? (

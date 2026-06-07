@@ -280,6 +280,24 @@ export async function uploadProjectSourceFile(projectId: string, file: File) {
   return data.map(adaptChapter);
 }
 
+export async function appendProjectSource(projectId: string, content: string) {
+  const data = await requestJson<BackendChapterResponse[]>(
+    `/projects/${projectId}/chapters/append`,
+    buildJsonPostOptions({ content })
+  );
+  return data.map(adaptChapter);
+}
+
+export async function appendProjectSourceFile(projectId: string, file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+  const data = await requestFormJson<BackendChapterResponse[]>(
+    `/projects/${projectId}/chapters/append`,
+    formData
+  );
+  return data.map(adaptChapter);
+}
+
 export async function analyzeStoryAssets(projectId: string) {
   // 对齐开发契约：分析会写入实体和事件资产，因此必须使用 POST /analyze。
   const data = await requestJson<BackendStoryAnalysisResponse>(

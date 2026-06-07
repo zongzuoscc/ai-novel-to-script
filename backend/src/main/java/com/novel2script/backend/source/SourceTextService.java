@@ -23,8 +23,13 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
 @Service
 public class SourceTextService {
@@ -81,6 +86,11 @@ public class SourceTextService {
     }
 
     @Transactional
+    public List<ChapterResponse> appendSource(String projectId, SubmitSourceRequest request) {
+        return projectOperationLock.execute(projectId, () -> appendSourceLocked(projectId, request));
+    }
+
+    @Transactional
     public List<ChapterResponse> submitSourceFile(String projectId, MultipartFile file) {
         SubmitSourceRequest request = new SubmitSourceRequest();
         request.setContent(readSourceFileContent(file));
@@ -91,6 +101,19 @@ public class SourceTextService {
                 file == null ? 0 : file.getSize()
         );
         return projectOperationLock.execute(projectId, () -> submitSourceLocked(projectId, request));
+    }
+
+    @Transactional
+    public List<ChapterResponse> appendSourceFile(String projectId, MultipartFile file) {
+        SubmitSourceRequest request = new SubmitSourceRequest();
+        request.setContent(readSourceFileContent(file));
+        log.info(
+                "收到追加小说文件上传: projectId={}, filename={}, size={}",
+                projectId,
+                file == null ? "" : file.getOriginalFilename(),
+                file == null ? 0 : file.getSize()
+        );
+        return projectOperationLock.execute(projectId, () -> appendSourceLocked(projectId, request));
     }
 
     private List<ChapterResponse> submitSourceLocked(String projectId, SubmitSourceRequest request) {
@@ -133,6 +156,89 @@ public class SourceTextService {
         return sourceChapterMapper.findByProjectIdOrderByChapterNoAsc(projectId).stream()
                 .map(ChapterResponse::from)
                 .toList();
+    }
+
+    private List<ChapterResponse> appendSourceLocked(String projectId, SubmitSourceRequest request) {
+        long startedAt = System.currentTimeMillis();
+        log.info("开始追加小说章节: projectId={}", projectId);
+        progressEventPublisher.jobStarted(projectId, "source_append", "source_submitted", 10, "开始追加小说章节");
+        Project project = projectService.getProjectEntity(projectId);
+        projectService.updateStatus(projectId, ProjectStatus.SOURCE_SUBMITTED);
+
+        List<ChapterSplitter.ChapterSegment> segments = chapterSplitter.split(request.getContent());
+        normalizeExplicitChapterNos(projectId);
+        List<SourceChapter> existingChapters = sourceChapterMapper.findByProjectIdOrderByChapterNoAsc(projectId);
+        Set<Integer> usedChapterNos = new LinkedHashSet<>();
+        for (SourceChapter chapter : existingChapters) {
+            usedChapterNos.add(chapter.getChapterNo());
+        }
+        int nextChapterNo = usedChapterNos.stream().max(Integer::compareTo).orElse(0) + 1;
+        List<SourceChapter> chapters = new ArrayList<>();
+        for (ChapterSplitter.ChapterSegment segment : segments) {
+            int chapterNo = segment.explicitChapterNo() && !usedChapterNos.contains(segment.chapterNo())
+                    ? segment.chapterNo()
+                    : nextAvailableChapterNo(usedChapterNos, nextChapterNo);
+            usedChapterNos.add(chapterNo);
+            nextChapterNo = Math.max(nextChapterNo, chapterNo + 1);
+            chapters.add(new SourceChapter(
+                    project,
+                    chapterNo,
+                    segment.title(),
+                    segment.rawText(),
+                    segment.cleanText()
+            ));
+        }
+
+        if (!chapters.isEmpty()) {
+            sourceChapterMapper.insertBatch(chapters);
+        }
+        normalizeExplicitChapterNos(projectId);
+        projectService.updateStatus(projectId, ProjectStatus.CHAPTERED);
+        progressEventPublisher.jobCompleted(projectId, "chaptered", 30, false, "章节追加完成，新增 " + chapters.size() + " 章");
+        log.info(
+                "小说章节追加完成: projectId={}, appendCount={}, elapsedMs={}",
+                projectId,
+                chapters.size(),
+                System.currentTimeMillis() - startedAt
+        );
+
+        return sourceChapterMapper.findByProjectIdOrderByChapterNoAsc(projectId).stream()
+                .map(ChapterResponse::from)
+                .toList();
+    }
+
+    private int nextAvailableChapterNo(Set<Integer> usedChapterNos, int start) {
+        int candidate = Math.max(1, start);
+        while (usedChapterNos.contains(candidate)) {
+            candidate++;
+        }
+        return candidate;
+    }
+
+    private void normalizeExplicitChapterNos(String projectId) {
+        List<SourceChapter> chapters = sourceChapterMapper.findByProjectIdOrderByChapterNoAsc(projectId);
+        Map<Long, Integer> updates = new LinkedHashMap<>();
+        Set<Integer> targetNos = new LinkedHashSet<>();
+        for (SourceChapter chapter : chapters) {
+            Integer parsedChapterNo = chapterSplitter.parseChapterNo(chapter.getTitle());
+            if (parsedChapterNo == null) {
+                continue;
+            }
+            if (!targetNos.add(parsedChapterNo)) {
+                return;
+            }
+            updates.put(chapter.getId(), parsedChapterNo);
+        }
+
+        if (updates.isEmpty()) {
+            return;
+        }
+        for (SourceChapter chapter : chapters) {
+            Integer targetNo = updates.get(chapter.getId());
+            if (targetNo != null && !targetNo.equals(chapter.getChapterNo())) {
+                sourceChapterMapper.updateChapterNo(chapter.getId(), targetNo);
+            }
+        }
     }
 
     private String readSourceFileContent(MultipartFile file) {
@@ -181,9 +287,10 @@ public class SourceTextService {
                 .toString();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<ChapterResponse> listChapters(String projectId) {
         projectService.getProjectEntity(projectId);
+        normalizeExplicitChapterNos(projectId);
         return sourceChapterMapper.findByProjectIdOrderByChapterNoAsc(projectId).stream()
                 .map(ChapterResponse::from)
                 .toList();
