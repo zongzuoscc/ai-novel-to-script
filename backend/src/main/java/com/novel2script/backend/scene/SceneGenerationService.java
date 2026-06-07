@@ -78,7 +78,6 @@ public class SceneGenerationService {
         this.maxOutlineEventsPerBatch = Math.max(1, maxOutlineEventsPerBatch);
     }
 
-    @Transactional
     public List<OutlineSceneResponse> listOutline(String projectId) {
         return projectOperationLock.execute(projectId, () -> listOutlineLocked(projectId));
     }
@@ -91,7 +90,6 @@ public class SceneGenerationService {
                 .toList();
     }
 
-    @Transactional
     public List<OutlineSceneResponse> generateIncrementalOutline(String projectId) {
         return projectOperationLock.execute(projectId, () -> generateIncrementalOutlineLocked(projectId));
     }
@@ -172,7 +170,6 @@ public class SceneGenerationService {
         return projectOperationLock.execute(projectId, () -> getSceneScriptLocked(projectId, sceneId));
     }
 
-    @Transactional
     public List<SceneScriptResponse> generateMissingSceneScripts(String projectId) {
         return projectOperationLock.execute(projectId, () -> generateMissingSceneScriptsLocked(projectId));
     }
@@ -213,7 +210,6 @@ public class SceneGenerationService {
         return scripts;
     }
 
-    @Transactional
     public SceneScriptResponse regenerateSceneScript(String projectId, String sceneId) {
         return projectOperationLock.execute(projectId, () -> regenerateSceneScriptLocked(projectId, sceneId));
     }
