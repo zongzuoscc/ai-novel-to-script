@@ -35,18 +35,25 @@ public class WorkflowController {
     }
 
     @PostMapping("/validate")
-    public ApiResponse<ValidationReportResponse> validateProject(@PathVariable String projectId) {
-        return ApiResponse.ok(workflowService.validateProject(projectId));
+    public ApiResponse<ValidationReportResponse> validateProject(
+            @PathVariable String projectId,
+            @RequestParam(defaultValue = "false") boolean force
+    ) {
+        return ApiResponse.ok(workflowService.validateProject(projectId, force));
     }
 
     @GetMapping(value = "/export", produces = "text/yaml;charset=UTF-8")
-    public ResponseEntity<String> exportProject(@PathVariable String projectId, @RequestParam(defaultValue = "yaml") String format) {
+    public ResponseEntity<String> exportProject(
+            @PathVariable String projectId,
+            @RequestParam(defaultValue = "yaml") String format,
+            @RequestParam(defaultValue = "false") boolean force
+    ) {
         if (!"yaml".equalsIgnoreCase(format)) {
             throw new IllegalArgumentException("暂只支持 YAML 导出");
         }
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType("text/yaml;charset=UTF-8"))
-                .body(workflowService.exportYaml(projectId));
+                .body(workflowService.exportYaml(projectId, force));
     }
 
     @GetMapping("/events")
