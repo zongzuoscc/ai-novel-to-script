@@ -13,8 +13,8 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
   servlet:
     multipart:
-      max-file-size: 2MB
-      max-request-size: 3MB
+      max-file-size: ${SOURCE_FILE_MAX_MB:20}MB
+      max-request-size: ${SOURCE_REQUEST_MAX_MB:22}MB
   sql:
     init:
       mode: always

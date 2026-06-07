@@ -9,6 +9,7 @@
 - 字符编码：`UTF-8`
 - 当前接口前缀：`/api`
 - AI 配置从本地 `.env` 读取：`AI_API_KEY`、`AI_BASE_URL`、`AI_MODEL_ID`、`AI_TIMEOUT_SECONDS`、`AI_MAX_RETRIES`
+- 小说上传限制从本地 `.env` 读取：`SOURCE_FILE_MAX_MB`、`SOURCE_REQUEST_MAX_MB`
 
 ## 通用响应结构
 
@@ -235,7 +236,7 @@ Content-Type: multipart/form-data
 处理规则：
 
 - 后端读取上传文件内容后，复用 `POST /api/projects/{projectId}/source` 的章节切分和入库逻辑。
-- 文件大小不能超过 2MB。
+- 文件大小默认不能超过 20MB，可通过 `SOURCE_FILE_MAX_MB` 调整。
 - 编码优先按 UTF-8 解析，失败时使用 GB18030 兜底。
 - 上传成功后会替换该项目旧章节，并清空旧的实体、事件、场景大纲和 Scene 结果。
 
