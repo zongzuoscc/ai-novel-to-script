@@ -42,6 +42,7 @@
 ## Next A Line Dependencies
 
 - 根据联调结果细化 AI 提示词和错误处理
+- 已收紧章节摘要、故事资产抽取、场景大纲、Scene 详情和流式预览的 AI 提示词，要求按输入顺序输出、只使用契约 ID、不编造 sourceRefs，并避免 Markdown 包裹 JSON
 - 独立 PR 实现真实 SSE 进度流，覆盖提交、分析、outline、scene、校验、导出阶段
 - `GET /api/projects/{projectId}/events` 保留给 SSE，不用于故事事件列表
 
