@@ -4,6 +4,7 @@ import com.novel2script.backend.common.ApiResponse;
 import com.novel2script.backend.project.Project;
 import com.novel2script.backend.project.ProjectService;
 import com.novel2script.backend.workflow.dto.ValidationReportResponse;
+import com.novel2script.backend.workflow.dto.WorkflowJobResponse;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,14 +25,18 @@ public class WorkflowController {
 
     private final ProgressEventPublisher progressEventPublisher;
 
+    private final WorkflowJobService workflowJobService;
+
     public WorkflowController(
             WorkflowService workflowService,
             ProjectService projectService,
-            ProgressEventPublisher progressEventPublisher
+            ProgressEventPublisher progressEventPublisher,
+            WorkflowJobService workflowJobService
     ) {
         this.workflowService = workflowService;
         this.projectService = projectService;
         this.progressEventPublisher = progressEventPublisher;
+        this.workflowJobService = workflowJobService;
     }
 
     @PostMapping("/validate")
@@ -60,5 +65,30 @@ public class WorkflowController {
     public SseEmitter streamEvents(@PathVariable String projectId) {
         Project project = projectService.getProjectEntity(projectId);
         return progressEventPublisher.subscribe(project);
+    }
+
+    @PostMapping("/jobs/analyze")
+    public ApiResponse<WorkflowJobResponse> submitStoryAnalysisJob(@PathVariable String projectId) {
+        return ApiResponse.ok(workflowJobService.submitStoryAnalysis(projectId));
+    }
+
+    @PostMapping("/jobs/analyze/incremental")
+    public ApiResponse<WorkflowJobResponse> submitIncrementalStoryAnalysisJob(@PathVariable String projectId) {
+        return ApiResponse.ok(workflowJobService.submitIncrementalStoryAnalysis(projectId));
+    }
+
+    @PostMapping("/jobs/outline")
+    public ApiResponse<WorkflowJobResponse> submitOutlineGenerationJob(@PathVariable String projectId) {
+        return ApiResponse.ok(workflowJobService.submitOutlineGeneration(projectId));
+    }
+
+    @PostMapping("/jobs/outline/incremental")
+    public ApiResponse<WorkflowJobResponse> submitIncrementalOutlineGenerationJob(@PathVariable String projectId) {
+        return ApiResponse.ok(workflowJobService.submitIncrementalOutlineGeneration(projectId));
+    }
+
+    @GetMapping("/jobs/{jobId}")
+    public ApiResponse<WorkflowJobResponse> getWorkflowJob(@PathVariable String projectId, @PathVariable String jobId) {
+        return ApiResponse.ok(workflowJobService.getJob(projectId, jobId));
     }
 }
