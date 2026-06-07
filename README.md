@@ -511,7 +511,7 @@ git status --short --branch
 
 ## Contributors
 
-Thanks goes to these wonderful people:
+向每一位开发者致敬：
 
 <a href="https://github.com/zongzuoscc/ai-novel-to-script/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=zongzuoscc/ai-novel-to-script" />
