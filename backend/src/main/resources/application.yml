@@ -26,7 +26,7 @@ spring:
       simple:
         acknowledge-mode: auto
         concurrency: ${WORKFLOW_JOB_CONSUMER_CONCURRENCY:1}
-        max-concurrency: ${WORKFLOW_JOB_CONSUMER_MAX_CONCURRENCY:2}
+        max-concurrency: ${WORKFLOW_JOB_CONSUMER_MAX_CONCURRENCY:1}
         retry:
           enabled: true
           initial-interval: 2000
