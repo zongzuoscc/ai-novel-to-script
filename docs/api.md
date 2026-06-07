@@ -10,6 +10,7 @@
 - 当前接口前缀：`/api`
 - AI 配置从本地 `.env` 读取：`AI_API_KEY`、`AI_BASE_URL`、`AI_MODEL_ID`、`AI_TIMEOUT_SECONDS`、`AI_MAX_RETRIES`
 - 小说上传限制从本地 `.env` 读取：`SOURCE_FILE_MAX_MB`、`SOURCE_REQUEST_MAX_MB`
+- 工作流保护配置从本地 `.env` 读取：`WORKFLOW_MAX_AUTO_GENERATE_SCENES`
 
 ## 通用响应结构
 
@@ -615,13 +616,15 @@ POST /api/projects/{projectId}/scenes/{sceneId}/regenerate
 ## 结构校验
 
 ```http
-POST /api/projects/{projectId}/validate
+POST /api/projects/{projectId}/validate?force=false
 ```
 
 说明：
 
 - 结构校验用于检查当前项目已生成 Scene 的基础可用性。
 - 校验会读取场景大纲和 Scene 详情；如果 Scene 尚未生成，后端会按现有生成逻辑补齐后再校验。
+- 为避免中长篇项目误触发大量 AI 调用，默认最多自动补齐 `WORKFLOW_MAX_AUTO_GENERATE_SCENES` 个缺失 Scene。
+- 如果确认需要一次性补齐并校验，可以传入 `force=true` 明确执行。
 - 当前校验规则包括：动作描写是否为空、对白是否为空、对白角色是否出现在该场景角色列表中、Scene 自身 warnings。
 - 校验不会改写小说正文、角色、地点或故事事件。
 
@@ -649,13 +652,15 @@ POST /api/projects/{projectId}/validate
 ## 导出 YAML
 
 ```http
-GET /api/projects/{projectId}/export?format=yaml
+GET /api/projects/{projectId}/export?format=yaml&force=false
 ```
 
 说明：
 
 - 当前只支持 `format=yaml`。
 - 导出前会读取场景大纲和 Scene 详情；如果 Scene 尚未生成，后端会按现有生成逻辑补齐后导出。
+- 为避免中长篇项目误触发大量 AI 调用，默认最多自动补齐 `WORKFLOW_MAX_AUTO_GENERATE_SCENES` 个缺失 Scene。
+- 如果确认需要一次性补齐并导出，可以传入 `force=true` 明确执行。
 - 导出成功后项目状态更新为 `COMPLETED`。
 - 该接口直接返回 `text/yaml;charset=UTF-8`，不包裹通用 JSON 响应。
 
