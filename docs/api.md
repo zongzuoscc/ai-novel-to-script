@@ -696,14 +696,79 @@ GET /api/projects/{projectId}/events
 
 说明：
 
-- 当前接口使用 SSE 响应格式，但只发送当前项目状态快照后关闭连接。
-- 现阶段它不是完整实时进度流；真正的长任务阶段推送将在独立 SSE PR 中实现。
+- 当前接口使用 SSE 响应格式，连接后会先发送当前项目阶段。
+- 异步故事分析、异步场景大纲生成、Scene 生成、结构校验和 YAML 导出会通过该连接推送阶段事件。
 - 故事事件列表接口是 `/story-events`，不要使用 `/events` 查询故事事件。
 
 当前会发送：
 
-- `phase.changed`：当前项目状态对应的阶段。
-- `job.completed`：当前快照完成事件，包含 `exportReady`。
+- `job.started`：任务已提交或开始执行。
+- `phase.changed`：当前处理阶段变化。
+- `outline.ready`：场景大纲已生成。
+- `scene.done`：单个 Scene 已生成。
+- `validation.warn`：结构校验发现 warning。
+- `job.completed`：任务完成。
+- `job.failed`：任务失败。
+
+## 异步长任务
+
+长篇小说处理建议使用异步任务接口。接口会立即返回 `jobId`，后台继续执行，前端通过 `/events` 接收进度，也可以通过任务查询接口轮询状态。
+
+### 提交故事资产分析任务
+
+```http
+POST /api/projects/{projectId}/jobs/analyze
+```
+
+### 提交增量故事资产分析任务
+
+```http
+POST /api/projects/{projectId}/jobs/analyze/incremental
+```
+
+### 提交场景大纲生成任务
+
+```http
+POST /api/projects/{projectId}/jobs/outline
+```
+
+### 提交增量场景大纲生成任务
+
+```http
+POST /api/projects/{projectId}/jobs/outline/incremental
+```
+
+### 查询任务状态
+
+```http
+GET /api/projects/{projectId}/jobs/{jobId}
+```
+
+响应示例：
+
+```json
+{
+  "success": true,
+  "message": "ok",
+  "data": {
+    "jobId": "job_0f3c6e3c6c8b4f0a9c43f8d0e5a8b1d2",
+    "projectId": "proj_20260607_000001",
+    "jobType": "outline_generation_async",
+    "status": "RUNNING",
+    "message": "任务正在后台执行",
+    "createdAt": "2026-06-07T17:55:00",
+    "updatedAt": "2026-06-07T17:55:02"
+  }
+}
+```
+
+状态说明：
+
+| 状态 | 说明 |
+| --- | --- |
+| `RUNNING` | 任务已提交或正在执行 |
+| `SUCCEEDED` | 任务执行成功 |
+| `FAILED` | 任务执行失败，可查看 `message` |
 
 ## 调试示例
 
