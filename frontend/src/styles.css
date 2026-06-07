@@ -273,6 +273,28 @@ button {
   color: #027a48;
 }
 
+.notice-banner-warning {
+  border-color: #fecdca;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.analysis-banner-content {
+  display: grid;
+  gap: 10px;
+}
+
+.analysis-pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.status-pill-success-strong {
+  background: #d1fadf;
+  color: #05603a;
+}
+
 .phase-list {
   list-style: none;
   padding: 0;

@@ -20,6 +20,7 @@ import type {
   ProgressStreamEvent,
   ProjectViewModel,
   SceneDetailViewModel,
+  StoryAnalysisViewModel,
   StoryEntityViewModel,
   StoryEventViewModel,
   ValidationReportViewModel,
@@ -51,6 +52,11 @@ const phaseKeyToLabel: Record<string, string> = {
   scene_generating: "Scene 生成",
   completed: "YAML 导出",
   failed: "Scene 生成"
+};
+
+const analysisModeLabels: Record<string, string> = {
+  AI: "AI 抽取",
+  FALLBACK: "规则兜底"
 };
 
 const mockOutlineScenes = outlineData as OutlineSceneViewModel[];
@@ -166,8 +172,9 @@ function App() {
   const [progressStreamPhase, setProgressStreamPhase] = useState("");
   const [progressStreamValue, setProgressStreamValue] = useState<number | null>(null);
   const [progressSourceMode, setProgressSourceMode] = useState<"real" | "static">("static");
+  const [analysisResult, setAnalysisResult] = useState<StoryAnalysisViewModel | null>(null);
   const [analysisMessage, setAnalysisMessage] = useState("");
-  const [analysisStatus, setAnalysisStatus] = useState<"success" | "error" | "">("");
+  const [analysisStatus, setAnalysisStatus] = useState<"success" | "warning" | "error" | "">("");
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [isSubmittingSource, setIsSubmittingSource] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -333,6 +340,7 @@ function App() {
       setProgressStreamPhase("");
       setProgressStreamValue(null);
       setProgressSourceMode("static");
+      setAnalysisResult(null);
       setStoryEntities([]);
       setStoryEvents([]);
       setSourceTextInput("");
@@ -353,6 +361,7 @@ function App() {
     }
 
     setIsAnalyzing(true);
+    setAnalysisResult(null);
     setAnalysisMessage("");
     setAnalysisStatus("");
 
@@ -367,8 +376,11 @@ function App() {
       setStoryEvents(events);
       setStoryAssetsMessage("");
       setStoryEventsMessage("");
-      setAnalysisStatus("success");
-      setAnalysisMessage(`分析完成，已同步 ${result.entityCount} 个实体和 ${result.eventCount} 个事件。`);
+      setAnalysisResult(result);
+      setAnalysisStatus(result.aiSuccess ? "success" : "warning");
+      setAnalysisMessage(
+        `${result.message}，已同步 ${result.entityCount} 个实体和 ${result.eventCount} 个事件。`
+      );
       try {
         const scenes = await getProjectOutline(project.projectId);
         if (scenes.length > 0) {
@@ -528,6 +540,9 @@ function App() {
           setProgressStreamPhase("");
           setProgressStreamValue(null);
           setProgressSourceMode("static");
+          setAnalysisResult(null);
+          setAnalysisMessage("");
+          setAnalysisStatus("");
           setConnectionMode("mock-only");
           return;
         }
@@ -547,6 +562,9 @@ function App() {
         setProgressStreamPhase("");
         setProgressStreamValue(null);
         setProgressSourceMode("static");
+        setAnalysisResult(null);
+        setAnalysisMessage("");
+        setAnalysisStatus("");
         setConnectionMode("error");
       }
     }
@@ -831,6 +849,10 @@ function App() {
   const activePhaseLabel =
     phaseKeyToLabel[progressSourceMode === "real" && progressStreamPhase ? progressStreamPhase : project.currentPhase] ??
     "Scene 生成";
+  const analysisModeLabel =
+    analysisResult?.generationMode == null
+      ? ""
+      : analysisModeLabels[analysisResult.generationMode] ?? analysisResult.generationMode;
 
   return (
     <div className="app-shell">
@@ -946,10 +968,33 @@ function App() {
           {analysisMessage ? (
             <div
               className={
-                analysisStatus === "success" ? "notice-banner notice-banner-success" : "notice-banner"
+                analysisStatus === "success"
+                  ? "notice-banner notice-banner-success"
+                  : analysisStatus === "warning"
+                    ? "notice-banner notice-banner-warning"
+                    : "notice-banner"
               }
             >
-              {analysisMessage}
+              <div className="analysis-banner-content">
+                <span>{analysisMessage}</span>
+                {analysisResult ? (
+                  <div className="analysis-pill-row">
+                    <span className="inline-pill">{analysisModeLabel}</span>
+                    <span
+                      className={
+                        analysisResult.aiSuccess
+                          ? "status-pill status-pill-success-strong"
+                          : "status-pill status-pill-warn"
+                      }
+                    >
+                      {analysisResult.aiSuccess ? "AI 成功" : "AI 失败"}
+                    </span>
+                    {analysisResult.fallbackUsed ? (
+                      <span className="status-pill status-pill-warn">已切换兜底</span>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
             </div>
           ) : null}
           <div className="project-meta">
